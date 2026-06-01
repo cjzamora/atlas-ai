@@ -1,0 +1,27 @@
+{
+  "name": "atlas-ai",
+  "version": "0.1.0",
+  "description": "Atlas Meta Agentic OS v0 local CLI",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "atlas": "./src/cli.js"
+  },
+  "scripts": {
+    "atlas": "node ./src/cli.js",
+    "init": "node ./src/cli.js init",
+    "index": "node ./src/cli.js index",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "atlas",
+    "agentic",
+    "cli",
+    "repo-intelligence",
+    "developer-tools"
+  ],
+  "license": "MIT"
+}

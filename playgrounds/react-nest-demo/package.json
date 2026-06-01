@@ -1,0 +1,8 @@
+{
+  "name": "react-nest-demo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
