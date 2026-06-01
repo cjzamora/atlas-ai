@@ -5,6 +5,8 @@ import { indexCommand } from "./commands/index.js";
 import { askCommand } from "./commands/ask.js";
 import { planCommand } from "./commands/plan.js";
 import { contextCommand } from "./commands/context.js";
+import { promptCommand } from "./commands/prompt.js";
+import { execCommand } from "./commands/exec.js";
 import { runsCommand } from "./commands/runs.js";
 import { memorySearchCommand } from "./commands/memory-search.js";
 import { costReportCommand } from "./commands/cost-report.js";
@@ -17,6 +19,8 @@ const commandHandlers = {
   ask: askCommand,
   plan: planCommand,
   context: contextCommand,
+  prompt: promptCommand,
+  exec: execCommand,
   runs: runsCommand,
   memory: memorySearchCommand,
   cost: costReportCommand,
@@ -58,6 +62,8 @@ function usage() {
     "  atlas ask \"<question>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas plan \"<task>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas context \"<task>\" [--root <path>] [--limit <n>] [--json]",
+    "  atlas prompt \"<task>\" [--root <path>] [--limit <n>] [--json]",
+    "  atlas exec prepare \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas runs [--root <path>] [--limit <n>] [--json]",
     "  atlas memory search \"<query>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas cost report [--root <path>] [--json]",

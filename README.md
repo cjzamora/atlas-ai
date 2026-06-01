@@ -20,6 +20,8 @@ It is intentionally local-first and dependency-light.
 - `atlas ask "<query>"`
 - `atlas plan "<task>"`
 - `atlas context "<task>"`
+- `atlas prompt "<task>"`
+- `atlas exec prepare "<task>"`
 - `atlas test impacted "<query>"`
 - `atlas runs`
 - `atlas memory search "<query>"`
@@ -36,6 +38,8 @@ node src/cli.js index --root playgrounds/react-nest-demo
 node src/cli.js ask "coupon discount pricing checkout" --root playgrounds/react-nest-demo
 node src/cli.js plan "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js context "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js prompt "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
 ```
 
@@ -71,6 +75,8 @@ Current coverage focuses on:
 - impacted-test selection
 - planning output
 - context bundle generation
+- prompt generation
+- execution request packaging
 
 ## Structure
 
@@ -91,10 +97,11 @@ Implemented:
 - retrieval-backed planning
 - graph-backed impacted-test selection
 - Codex-ready context bundles
+- model-ready prompt and execution request generation
 
 Not implemented yet:
 
-- real model execution wrapper
+- live model API execution
 - patch generation and application
 - retry/validation loops
 - semantic embeddings
