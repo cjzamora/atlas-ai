@@ -1,0 +1,209 @@
+import { ensureAtlasRuntime } from "../core/runtime.js";
+import { searchEvidence } from "../core/retrieval.js";
+import { classifyTask, buildPlanArtifact } from "../core/planner.js";
+import { selectImpactedTests } from "../validation/test-selection.js";
+import { buildContextBundle } from "../core/context-builder.js";
+import { buildPromptFromBundle } from "../core/prompt-builder.js";
+import { buildExecutionRequest } from "../core/execution-builder.js";
+import { createRunLogger } from "../core/run-log.js";
+import { executeOpenAIRequest } from "../adapters/openai.js";
+import { buildPatchArtifact, readPatchArtifact, writePatchArtifact } from "../core/patch-artifact.js";
+
+const USAGE = 'Usage: atlas patch stage "<task>"\n       atlas patch show <artifact-id>';
+
+export async function patchCommand({ args, flags }) {
+  const subcommand = args[0];
+  if (subcommand === "stage") {
+    return stagePatch({ args: args.slice(1), flags });
+  }
+  if (subcommand === "show") {
+    return showPatch({ args: args.slice(1), flags });
+  }
+  throw new Error(USAGE);
+}
+
+async function stagePatch({ args, flags }) {
+  const task = args.join(" ").trim();
+  if (!task) {
+    throw new Error(USAGE);
+  }
+
+  const runtime = await ensureAtlasRuntime(flags.root);
+  const limit = Number(flags.limit || 6);
+  const provider = String(flags.provider || "openai");
+  const model = String(flags.model || "codex");
+  const request = await buildPatchRequest({
+    runtime,
+    task,
+    limit,
+    provider,
+    model
+  });
+
+  const logger = createRunLogger(runtime.paths.dbFile);
+  const run = logger.startRun({
+    command: "patch_stage",
+    input: task,
+    metadata: {
+      provider,
+      model,
+      requestId: request.requestId,
+      selectedTests: request.selectedTests,
+      executionMode: "patch_stage",
+      reviewOnly: true
+    }
+  });
+
+  if (provider !== "openai") {
+    const failure = {
+      ok: false,
+      command: "patch stage",
+      task,
+      request,
+      status: "failed",
+      artifactId: null,
+      artifact: null,
+      usage: null,
+      error: {
+        code: "unsupported_provider",
+        message: `Provider "${provider}" is not supported yet.`
+      }
+    };
+    logger.finishRun(run.id, {
+      status: "failed",
+      output: failure,
+      metrics: {
+        provider,
+        model,
+        selectedTests: request.selectedTests.length
+      }
+    });
+    return failure;
+  }
+
+  const result = await executeOpenAIRequest({
+    request,
+    apiKey: process.env.OPENAI_API_KEY,
+    commandLabel: "atlas patch stage"
+  });
+
+  if (!result.ok) {
+    const failure = {
+      ok: false,
+      command: "patch stage",
+      task,
+      request,
+      status: "failed",
+      artifactId: null,
+      artifact: null,
+      usage: result.usage || null,
+      error: result.error
+    };
+    logger.finishRun(run.id, {
+      status: "failed",
+      output: failure,
+      metrics: {
+        provider,
+        model,
+        requestId: request.requestId,
+        latencyMs: result.latencyMs ?? null,
+        selectedTests: request.selectedTests.length,
+        inputTokens: result.usage?.inputTokens ?? null,
+        outputTokens: result.usage?.outputTokens ?? null,
+        totalTokens: result.usage?.totalTokens ?? null
+      }
+    });
+    return failure;
+  }
+
+  const artifact = buildPatchArtifact({
+    task,
+    request,
+    response: result.response,
+    usage: result.usage,
+    provider,
+    model
+  });
+  const artifactPath = await writePatchArtifact(runtime.paths.artifactsDir, artifact);
+
+  const output = {
+    ok: true,
+    command: "patch stage",
+    task,
+    request,
+    status: "staged",
+    artifactId: artifact.id,
+    artifactPath,
+    artifact,
+    usage: result.usage || null,
+    error: null
+  };
+
+  logger.finishRun(run.id, {
+    status: "completed",
+    output,
+    metrics: {
+      provider,
+      model,
+      requestId: request.requestId,
+      latencyMs: result.latencyMs ?? null,
+      selectedTests: request.selectedTests.length,
+      stagedPatches: artifact.patches.length,
+      inputTokens: result.usage?.inputTokens ?? null,
+      outputTokens: result.usage?.outputTokens ?? null,
+      totalTokens: result.usage?.totalTokens ?? null
+    }
+  });
+
+  return output;
+}
+
+async function showPatch({ args, flags }) {
+  const artifactId = args.join(" ").trim();
+  if (!artifactId) {
+    throw new Error(USAGE);
+  }
+
+  const runtime = await ensureAtlasRuntime(flags.root);
+  const artifact = await readPatchArtifact(runtime.paths.artifactsDir, artifactId);
+  return {
+    ok: true,
+    command: "patch show",
+    artifactId,
+    artifact
+  };
+}
+
+async function buildPatchRequest({ runtime, task, limit, provider, model }) {
+  const classification = classifyTask(task);
+  const evidence = searchEvidence(runtime.paths.dbFile, task, limit);
+  const impacted = classification.requiresTests
+    ? selectImpactedTests(runtime.paths.dbFile, task, limit)
+    : { impactedFiles: [], tests: [] };
+  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
+  const bundle = await buildContextBundle({
+    rootDir: runtime.rootDir,
+    task,
+    classification,
+    evidenceMatches: evidence.matches,
+    plan
+  });
+  const basePrompt = buildPromptFromBundle(bundle);
+  const prompt = [
+    basePrompt,
+    "",
+    "Patch staging instructions:",
+    "- Return a unified diff whenever possible.",
+    "- If a full unified diff is not possible, return fenced diff or code blocks.",
+    "- Do not claim that changes were applied. Atlas will stage this as a review-only patch artifact."
+  ].join("\n");
+
+  return buildExecutionRequest({
+    task,
+    classification,
+    bundle,
+    prompt,
+    provider,
+    model
+  });
+}

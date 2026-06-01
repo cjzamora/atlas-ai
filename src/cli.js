@@ -7,6 +7,7 @@ import { planCommand } from "./commands/plan.js";
 import { contextCommand } from "./commands/context.js";
 import { promptCommand } from "./commands/prompt.js";
 import { execCommand } from "./commands/exec.js";
+import { patchCommand } from "./commands/patch.js";
 import { runsCommand } from "./commands/runs.js";
 import { memorySearchCommand } from "./commands/memory-search.js";
 import { costReportCommand } from "./commands/cost-report.js";
@@ -21,6 +22,7 @@ const commandHandlers = {
   context: contextCommand,
   prompt: promptCommand,
   exec: execCommand,
+  patch: patchCommand,
   runs: runsCommand,
   memory: memorySearchCommand,
   cost: costReportCommand,
@@ -64,6 +66,9 @@ function usage() {
     "  atlas context \"<task>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas prompt \"<task>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas exec prepare \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
+    "  atlas exec run \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
+    "  atlas patch stage \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
+    "  atlas patch show <artifact-id> [--root <path>] [--json]",
     "  atlas runs [--root <path>] [--limit <n>] [--json]",
     "  atlas memory search \"<query>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas cost report [--root <path>] [--json]",

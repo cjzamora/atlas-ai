@@ -22,6 +22,9 @@ It is intentionally local-first and dependency-light.
 - `atlas context "<task>"`
 - `atlas prompt "<task>"`
 - `atlas exec prepare "<task>"`
+- `atlas exec run "<task>"`
+- `atlas patch stage "<task>"`
+- `atlas patch show <artifact-id>`
 - `atlas test impacted "<query>"`
 - `atlas runs`
 - `atlas memory search "<query>"`
@@ -40,6 +43,9 @@ node src/cli.js plan "fix expired coupons still applying at checkout" --root pla
 node src/cli.js context "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js prompt "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js patch show patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
 ```
 
@@ -77,6 +83,7 @@ Current coverage focuses on:
 - context bundle generation
 - prompt generation
 - execution request packaging
+- openai execution wrapper behavior
 
 ## Structure
 
@@ -98,11 +105,12 @@ Implemented:
 - graph-backed impacted-test selection
 - Codex-ready context bundles
 - model-ready prompt and execution request generation
+- live OpenAI execution request/response logging
+- review-only patch staging artifacts under `.atlas/artifacts`
 
 Not implemented yet:
 
-- live model API execution
-- patch generation and application
+- patch application
 - retry/validation loops
 - semantic embeddings
 - true AST or tree-sitter parsing

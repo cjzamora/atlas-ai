@@ -31,6 +31,18 @@ function formatHuman(value) {
     return formatExecOutput(value);
   }
 
+  if (value.command === "exec run") {
+    return formatExecRunOutput(value);
+  }
+
+  if (value.command === "patch stage") {
+    return formatPatchStageOutput(value);
+  }
+
+  if (value.command === "patch show") {
+    return formatPatchShowOutput(value);
+  }
+
   if (value.command === "test impacted") {
     return formatTestOutput(value);
   }
@@ -130,6 +142,87 @@ function formatExecOutput(value) {
     "",
     "Prompt preview:",
     (request.prompt || "").slice(0, 600) + ((request.prompt || "").length > 600 ? "\n..." : "")
+  ];
+  return lines.join("\n");
+}
+
+function formatExecRunOutput(value) {
+  const request = value.request || {};
+  const response = value.response || {};
+  const usage = value.usage || {};
+  const lines = [
+    `Task: ${value.task}`,
+    `Provider: ${request.provider || "unknown"}`,
+    `Model: ${request.model || "unknown"}`,
+    `Request ID: ${request.requestId || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    "",
+    "Selected tests:",
+    ...formatLines(request.selectedTests),
+    ""
+  ];
+
+  if (value.error) {
+    lines.push(`Error: ${value.error.message}`);
+  } else {
+    lines.push(
+      "Usage:",
+      `- Input tokens: ${usage.inputTokens ?? "unknown"}`,
+      `- Output tokens: ${usage.outputTokens ?? "unknown"}`,
+      `- Total tokens: ${usage.totalTokens ?? "unknown"}`,
+      "",
+      "Response preview:",
+      (response.outputText || "").slice(0, 800) + ((response.outputText || "").length > 800 ? "\n..." : "")
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatPatchStageOutput(value) {
+  const artifact = value.artifact || {};
+  const request = value.request || {};
+  const lines = [
+    `Task: ${value.task}`,
+    `Provider: ${request.provider || "unknown"}`,
+    `Model: ${request.model || "unknown"}`,
+    `Request ID: ${request.requestId || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    `Artifact: ${value.artifactId || "none"}`,
+    `Review only: ${artifact.reviewOnly === true ? "yes" : "unknown"}`,
+    `Parse status: ${artifact.parseStatus || "unknown"}`,
+    "",
+    "Patch blocks:",
+    ...formatLines((artifact.patches || []).map((patch, index) => `${index + 1}. ${patch.kind}${patch.language ? ` (${patch.language})` : ""}`))
+  ];
+
+  if (value.error) {
+    lines.push("", `Error: ${value.error.message}`);
+  } else {
+    lines.push(
+      "",
+      "Raw output preview:",
+      (artifact.rawOutput || "").slice(0, 800) + ((artifact.rawOutput || "").length > 800 ? "\n..." : "")
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatPatchShowOutput(value) {
+  const artifact = value.artifact || {};
+  const lines = [
+    `Artifact: ${artifact.id || value.artifactId || "unknown"}`,
+    `Task: ${artifact.task || "unknown"}`,
+    `Status: ${artifact.status || "unknown"}`,
+    `Review only: ${artifact.reviewOnly === true ? "yes" : "unknown"}`,
+    `Parse status: ${artifact.parseStatus || "unknown"}`,
+    "",
+    "Patch blocks:",
+    ...formatLines((artifact.patches || []).map((patch, index) => `${index + 1}. ${patch.kind}${patch.language ? ` (${patch.language})` : ""}`)),
+    "",
+    "Raw output:",
+    artifact.rawOutput || ""
   ];
   return lines.join("\n");
 }
