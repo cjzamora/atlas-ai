@@ -37,6 +37,7 @@ It is intentionally local-first and dependency-light.
 - `atlas runs`
 - `atlas memory search "<query>"`
 - `atlas cost report`
+- `atlas eval retrieval --spec <spec.json>`
 
 All commands support `--root <path>` and most support `--json`.
 
@@ -68,6 +69,7 @@ node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
 node src/cli.js runs --command fix --status completed --root playgrounds/react-nest-demo
 node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
+node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 ```
 
 ## Manual Codex / Claude Round-Trip
@@ -150,6 +152,38 @@ Current coverage focuses on:
 - `test`: automated tests and small fixture repo
 - `playgrounds`: larger manual test fixtures
 
+## Retrieval Evaluation
+
+Atlas now supports repeatable retrieval benchmarking before adding semantic retrieval.
+
+Example spec:
+
+```json
+{
+  "limit": 5,
+  "cases": [
+    {
+      "query": "pricing coupon discount",
+      "expectedEvidence": ["src/services/pricing.js"],
+      "expectedTests": ["test/services/pricing.test.js"]
+    }
+  ]
+}
+```
+
+Run it with:
+
+```bash
+node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
+```
+
+This reports:
+
+- evidence hit rate
+- impacted-test hit rate
+- average match rank
+- per-query misses that can justify future semantic retrieval work
+
 ## Scope of v0
 
 Implemented:
@@ -184,6 +218,7 @@ Implemented:
 - run summaries and patch artifacts record when prior memory influenced Atlas behavior
 - memory learning dedupes repeated outcomes and prefers higher-confidence confirmed patterns over contradictory failures
 - transient provider/runtime retries for `exec run` and `patch stage`, limited to network, rate-limit, timeout, and 5xx-style failures
+- retrieval evaluation against query/spec fixtures so semantic retrieval is added only when current ranking evidence says it is needed
 
 Execution adapter contract in v0:
 

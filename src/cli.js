@@ -13,6 +13,7 @@ import { runsCommand } from "./commands/runs.js";
 import { memorySearchCommand } from "./commands/memory-search.js";
 import { costReportCommand } from "./commands/cost-report.js";
 import { testCommand } from "./commands/test.js";
+import { evalCommand } from "./commands/eval.js";
 import { formatOutput } from "./core/output.js";
 
 const commandHandlers = {
@@ -28,7 +29,8 @@ const commandHandlers = {
   runs: runsCommand,
   memory: memorySearchCommand,
   cost: costReportCommand,
-  test: testCommand
+  test: testCommand,
+  eval: evalCommand
 };
 
 function parseArgv(argv) {
@@ -81,7 +83,8 @@ function usage() {
     "  atlas memory search \"<query>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas cost report [--root <path>] [--json]",
     "  atlas test impacted \"<query>\" [--root <path>] [--limit <n>] [--json]",
-    "  atlas test run --artifact <artifact-id> [--root <path>] [--json]"
+    "  atlas test run --artifact <artifact-id> [--root <path>] [--json]",
+    "  atlas eval retrieval --spec <spec.json> [--root <path>] [--json]"
   ].join("\n");
 }
 

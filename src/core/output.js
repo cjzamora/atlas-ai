@@ -87,6 +87,10 @@ function formatHuman(value) {
     return formatCostReportOutput(value);
   }
 
+  if (value.command === "eval retrieval") {
+    return formatEvalRetrievalOutput(value);
+  }
+
   const lines = [];
   for (const [key, entry] of Object.entries(value)) {
     lines.push(`${key}: ${formatEntry(entry)}`);
@@ -288,6 +292,38 @@ function formatCostReportOutput(value) {
     `- Total edges: ${report.totalEdges ?? 0}`,
     `- Token estimates: ${report.tokenEstimates ?? "unknown"}`
   ].join("\n");
+}
+
+function formatEvalRetrievalOutput(value) {
+  const summary = value.summary || {};
+  const lines = [
+    `Spec: ${value.specFile || "unknown"}`,
+    `Cases: ${summary.caseCount ?? 0}`,
+    `Limit: ${summary.limit ?? "unknown"}`,
+    `Evidence hit rate: ${formatPercent(summary.evidenceHitRate)}`,
+    `Test hit rate: ${formatPercent(summary.testHitRate)}`,
+    `Evidence average rank: ${summary.evidenceAverageRank ?? "n/a"}`,
+    `Test average rank: ${summary.testAverageRank ?? "n/a"}`,
+    "",
+    "Cases:"
+  ];
+
+  for (const entry of value.cases || []) {
+    lines.push(`- ${entry.query}`);
+    lines.push(`  Evidence: ${entry.evidence.hit ? `hit@${entry.evidence.rank}` : "miss"}`);
+    lines.push(`  Top evidence: ${(entry.evidence.topMatches || []).join(", ") || "none"}`);
+    lines.push(`  Tests: ${entry.tests.hit ? `hit@${entry.tests.rank}` : "miss"}`);
+    lines.push(`  Top tests: ${(entry.tests.topMatches || []).join(", ") || "none"}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
+  return `${Math.round(value * 100)}%`;
 }
 
 function formatExecOutput(value) {
