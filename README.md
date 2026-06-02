@@ -206,6 +206,26 @@ Not implemented yet:
 - true AST or tree-sitter parsing
 - team/shared memory
 
-## Commit Guidance
+These are intentionally deferred beyond v0:
 
-This repo is ready for an initial v0 commit once you are satisfied with the manual CLI checks and `npm test`.
+- `retry loops`
+  Best added in early v1, after Atlas autonomy and failure-policy boundaries are defined more clearly.
+- `semantic embeddings`
+  Best added only if retrieval quality becomes a real bottleneck on larger repos.
+- `true AST or tree-sitter parsing`
+  Best added in early v1. This is the highest-priority technical upgrade for graph quality and safer automation.
+- `team/shared memory`
+  Best added later in v1 or v2, once Atlas is ready to move beyond a local single-user workflow.
+
+## Post-v0 Roadmap
+
+Recommended order after v0:
+
+1. True AST or tree-sitter parsing
+2. Retry loops with explicit safety boundaries
+3. Semantic retrieval if larger-repo quality demands it
+4. Shared/team memory and broader orchestration
+
+## Release Status
+
+Atlas v0 is complete for the current local-kernel scope once manual CLI checks and `npm test` pass.
