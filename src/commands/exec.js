@@ -6,7 +6,8 @@ import { buildContextBundle } from "../core/context-builder.js";
 import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
 import { createRunLogger } from "../core/run-log.js";
-import { executeOpenAIRequest } from "../adapters/openai.js";
+import { executeProviderRequest } from "../adapters/index.js";
+import "../adapters/openai.js";
 import { resolveModelConfig } from "../core/model-config.js";
 import { findRelevantRunPatterns } from "../core/store.js";
 
@@ -82,33 +83,8 @@ export async function execCommand({ args, flags }) {
     }
   });
 
-  if (provider !== "openai") {
-    const failure = {
-      ok: false,
-      command: "exec run",
-      task,
-      request,
-      status: "failed",
-      response: null,
-      usage: null,
-      error: {
-        code: "unsupported_provider",
-        message: `Provider "${provider}" is not supported yet.`
-      }
-    };
-    logger.finishRun(run.id, {
-      status: "failed",
-      output: failure,
-      metrics: {
-        provider,
-        model,
-        selectedTests: request.selectedTests.length
-      }
-    });
-    return failure;
-  }
-
-  const result = await executeOpenAIRequest({
+  const result = await executeProviderRequest({
+    provider,
     request,
     apiKey: process.env.OPENAI_API_KEY
   });

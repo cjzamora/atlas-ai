@@ -122,6 +122,7 @@ Implemented:
 - graph-backed impacted-test selection
 - Codex-ready context bundles
 - model-ready prompt and execution request generation
+- provider-normalized execution adapter seam with OpenAI registered as the first adapter
 - live OpenAI execution request/response logging
 - review-only patch staging artifacts under `.atlas/artifacts`
 - staged patch validation execution with artifact-backed result persistence
@@ -142,7 +143,6 @@ Implemented:
 
 Not implemented yet:
 
-- patch application
 - retry loops
 - semantic embeddings
 - true AST or tree-sitter parsing

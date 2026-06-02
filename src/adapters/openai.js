@@ -1,3 +1,5 @@
+import { registerExecutionAdapter } from "./index.js";
+
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 export async function executeOpenAIRequest({
@@ -127,3 +129,5 @@ function normalizeUsage(usage) {
     totalTokens: usage.total_tokens ?? null
   };
 }
+
+registerExecutionAdapter("openai", executeOpenAIRequest);

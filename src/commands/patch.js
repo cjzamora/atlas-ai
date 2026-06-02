@@ -6,7 +6,8 @@ import { buildContextBundle } from "../core/context-builder.js";
 import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
 import { createRunLogger } from "../core/run-log.js";
-import { executeOpenAIRequest } from "../adapters/openai.js";
+import { executeProviderRequest } from "../adapters/index.js";
+import "../adapters/openai.js";
 import { buildPatchArtifact, readPatchArtifact, updatePatchArtifact, writePatchArtifact } from "../core/patch-artifact.js";
 import { applyPatchArtifactToRepo, rollbackPatchArtifact } from "../core/patch-apply.js";
 import { runSelectedTests } from "../validation/test-runner.js";
@@ -67,34 +68,8 @@ async function stagePatch({ args, flags }) {
     }
   });
 
-  if (provider !== "openai") {
-    const failure = {
-      ok: false,
-      command: "patch stage",
-      task,
-      request,
-      status: "failed",
-      artifactId: null,
-      artifact: null,
-      usage: null,
-      error: {
-        code: "unsupported_provider",
-        message: `Provider "${provider}" is not supported yet.`
-      }
-    };
-    logger.finishRun(run.id, {
-      status: "failed",
-      output: failure,
-      metrics: {
-        provider,
-        model,
-        selectedTests: request.selectedTests.length
-      }
-    });
-    return failure;
-  }
-
-  const result = await executeOpenAIRequest({
+  const result = await executeProviderRequest({
+    provider,
     request,
     apiKey: process.env.OPENAI_API_KEY,
     commandLabel: "atlas patch stage"
