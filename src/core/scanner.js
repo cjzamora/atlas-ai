@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import * as ts from "typescript";
 
 const ignoredDirectoryNames = new Set([
   ".git",
@@ -121,7 +122,7 @@ async function walk(rootDir, currentDir, files) {
     const content = await fs.readFile(absolutePath, "utf8");
     const normalized = content.slice(0, 12000);
     const structured = isJavaScriptFamily(extension)
-      ? analyzeJavaScriptLikeSource(relativePath, normalized)
+      ? analyzeJavaScriptLikeSource(relativePath, normalized, extension)
       : null;
     files.push({
       path: relativePath,
@@ -133,6 +134,7 @@ async function walk(rootDir, currentDir, files) {
       symbols: structured?.symbols || extractSymbols(relativePath, normalized),
       imports: structured?.imports || extractImports(relativePath, normalized),
       calls: structured?.calls || extractCalls(relativePath, normalized),
+      receiverBindings: structured?.receiverBindings || {},
       relationships: []
     });
   }
@@ -178,7 +180,168 @@ function summarizeFile(relativePath, content) {
   return `File ${relativePath} starts with: ${lines.join(" ").slice(0, 280)}`;
 }
 
-function analyzeJavaScriptLikeSource(relativePath, content) {
+function analyzeJavaScriptLikeSource(relativePath, content, extension) {
+  try {
+    const parsed = analyzeJavaScriptLikeSourceAst(relativePath, content, extension);
+    if (parsed.symbols.length > 0 || parsed.imports.length > 0 || parsed.calls.length > 0) {
+      return parsed;
+    }
+  } catch {
+    // Fall back to the heuristic scanner if AST parsing fails unexpectedly.
+  }
+
+  const fallback = analyzeJavaScriptLikeSourceHeuristic(relativePath, content);
+  return {
+    ...fallback,
+    receiverBindings: {}
+  };
+}
+
+function analyzeJavaScriptLikeSourceAst(relativePath, content, extension) {
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindForExtension(extension)
+  );
+
+  const symbols = [];
+  const imports = [];
+  const calls = [];
+  const receiverBindings = {};
+  const localSymbolNames = new Set();
+
+  const addSymbol = (name, kind) => {
+    if (!name) {
+      return;
+    }
+    symbols.push({ name, kind, filePath: relativePath });
+    localSymbolNames.add(name);
+  };
+
+  const collectBindingFromTypeNode = (bindingName, typeNode) => {
+    const inferredName = inferBindingSymbolName(typeNode);
+    if (bindingName && inferredName) {
+      receiverBindings[bindingName] = inferredName;
+    }
+  };
+
+  const collectTopLevelDeclaration = (statement) => {
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      addSymbol(statement.name.text, "function");
+      return;
+    }
+
+    if (ts.isClassDeclaration(statement) && statement.name) {
+      addSymbol(statement.name.text, "class");
+
+      for (const member of statement.members) {
+        if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name)) {
+          addSymbol(member.name.text, "method");
+        }
+        if (ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name)) {
+          collectBindingFromTypeNode(member.name.text, member.type);
+          const initializerName = inferBindingSymbolName(member.initializer);
+          if (initializerName) {
+            receiverBindings[member.name.text] = initializerName;
+          }
+        }
+        if (ts.isConstructorDeclaration(member)) {
+          for (const parameter of member.parameters) {
+            if (
+              ts.isIdentifier(parameter.name) &&
+              parameter.modifiers?.some((modifier) =>
+                modifier.kind === ts.SyntaxKind.PrivateKeyword
+                || modifier.kind === ts.SyntaxKind.PublicKeyword
+                || modifier.kind === ts.SyntaxKind.ProtectedKeyword
+                || modifier.kind === ts.SyntaxKind.ReadonlyKeyword
+              )
+            ) {
+              collectBindingFromTypeNode(parameter.name.text, parameter.type);
+              const initializerName = inferBindingSymbolName(parameter.initializer);
+              if (initializerName) {
+                receiverBindings[parameter.name.text] = initializerName;
+              }
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) {
+          continue;
+        }
+        const variableKind = inferVariableSymbolKind(declaration.initializer);
+        if (variableKind) {
+          addSymbol(declaration.name.text, variableKind);
+        }
+        collectBindingFromTypeNode(declaration.name.text, declaration.type);
+        const initializerName = inferBindingSymbolName(declaration.initializer);
+        if (initializerName) {
+          receiverBindings[declaration.name.text] = initializerName;
+        }
+      }
+    }
+  };
+
+  for (const statement of sourceFile.statements) {
+    collectTopLevelDeclaration(statement);
+
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const specifier = statement.moduleSpecifier.text;
+      imports.push({
+        sourcePath: relativePath,
+        specifier,
+        targetPath: "",
+        edgeType: specifier.startsWith(".") ? "import" : "external_import",
+        importedSymbols: extractImportedSymbolsFromClause(statement.importClause)
+      });
+      continue;
+    }
+
+    if (
+      ts.isExpressionStatement(statement)
+      && ts.isCallExpression(statement.expression)
+      && statement.expression.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      const [firstArg] = statement.expression.arguments;
+      if (firstArg && ts.isStringLiteralLike(firstArg)) {
+        imports.push({
+          sourcePath: relativePath,
+          specifier: firstArg.text,
+          targetPath: "",
+          edgeType: firstArg.text.startsWith(".") ? "import" : "external_import",
+          importedSymbols: []
+        });
+      }
+    }
+  }
+
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const call = extractCallEntry(relativePath, node, localSymbolNames);
+      if (call) {
+        calls.push(call);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+
+  return {
+    symbols: dedupeSymbols(symbols),
+    imports: dedupeImports(imports),
+    calls: dedupeImports(calls),
+    receiverBindings
+  };
+}
+
+function analyzeJavaScriptLikeSourceHeuristic(relativePath, content) {
   const tokens = tokenizeJavaScriptLike(content);
   const symbols = [];
   const imports = [];
@@ -247,6 +410,153 @@ function analyzeJavaScriptLikeSource(relativePath, content) {
     imports: dedupeImports(imports),
     calls: dedupeImports(calls)
   };
+}
+
+function scriptKindForExtension(extension) {
+  switch (extension) {
+    case ".ts":
+      return ts.ScriptKind.TS;
+    case ".tsx":
+      return ts.ScriptKind.TSX;
+    case ".jsx":
+      return ts.ScriptKind.JSX;
+    default:
+      return ts.ScriptKind.JS;
+  }
+}
+
+function inferVariableSymbolKind(initializer) {
+  if (!initializer) {
+    return null;
+  }
+  if (ts.isClassExpression(initializer)) {
+    return "class";
+  }
+  if (
+    ts.isFunctionExpression(initializer)
+    || ts.isArrowFunction(initializer)
+    || ts.isMethodDeclaration(initializer)
+  ) {
+    return "function";
+  }
+  return null;
+}
+
+function extractImportedSymbolsFromClause(importClause) {
+  if (!importClause) {
+    return [];
+  }
+
+  const importedSymbols = [];
+  if (importClause.name) {
+    importedSymbols.push({ importedName: "default", localName: importClause.name.text });
+  }
+
+  const namedBindings = importClause.namedBindings;
+  if (!namedBindings) {
+    return importedSymbols;
+  }
+
+  if (ts.isNamespaceImport(namedBindings)) {
+    importedSymbols.push({ importedName: "*", localName: namedBindings.name.text });
+    return importedSymbols;
+  }
+
+  for (const element of namedBindings.elements) {
+    importedSymbols.push({
+      importedName: element.propertyName?.text || element.name.text,
+      localName: element.name.text
+    });
+  }
+
+  return importedSymbols;
+}
+
+function inferBindingSymbolName(node) {
+  if (!node) {
+    return "";
+  }
+
+  if (ts.isTypeReferenceNode(node)) {
+    if (ts.isIdentifier(node.typeName)) {
+      return node.typeName.text;
+    }
+    if (ts.isQualifiedName(node.typeName)) {
+      return node.typeName.right.text;
+    }
+  }
+
+  if (ts.isIdentifier(node)) {
+    return node.text;
+  }
+
+  if (ts.isNewExpression(node) && ts.isIdentifier(node.expression)) {
+    return node.expression.text;
+  }
+
+  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
+    return inferBindingSymbolName(node.expression);
+  }
+
+  if (ts.isParenthesizedExpression(node)) {
+    return inferBindingSymbolName(node.expression);
+  }
+
+  return "";
+}
+
+function extractCallEntry(relativePath, node, localSymbolNames) {
+  if (ts.isIdentifier(node.expression)) {
+    const name = node.expression.text;
+    if (IGNORED_CALLS.has(name) || localSymbolNames.has(name)) {
+      return null;
+    }
+
+    return {
+      sourcePath: relativePath,
+      specifier: name,
+      targetPath: "",
+      edgeType: "call",
+      receiver: ""
+    };
+  }
+
+  if (ts.isPropertyAccessExpression(node.expression)) {
+    const specifier = node.expression.name.text;
+    if (IGNORED_CALLS.has(specifier)) {
+      return null;
+    }
+
+    return {
+      sourcePath: relativePath,
+      specifier,
+      targetPath: "",
+      edgeType: "call",
+      receiver: extractCallReceiver(node.expression.expression)
+    };
+  }
+
+  return null;
+}
+
+function extractCallReceiver(expression) {
+  if (ts.isIdentifier(expression)) {
+    return expression.text;
+  }
+
+  if (
+    ts.isPropertyAccessExpression(expression)
+    && expression.expression.kind === ts.SyntaxKind.ThisKeyword
+    && ts.isIdentifier(expression.name)
+  ) {
+    return expression.name.text;
+  }
+
+  if (ts.isPropertyAccessExpression(expression)) {
+    return extractCallReceiver(expression.expression);
+  }
+
+  return "";
 }
 
 function tokenizeJavaScriptLike(content) {
@@ -808,6 +1118,28 @@ function resolveCallEntry(file, entry, symbolIndex) {
   }
 
   if (entry.receiver) {
+    const receiverBinding = file.receiverBindings?.[entry.receiver];
+    if (receiverBinding) {
+      const boundImport = file.imports.find((importEntry) =>
+        importEntry.importedSymbols?.some((symbol) => symbol.localName === receiverBinding || symbol.importedName === receiverBinding)
+      );
+      if (boundImport?.targetPath) {
+        return {
+          ...entry,
+          targetPath: boundImport.targetPath
+        };
+      }
+
+      const receiverOwners = symbolIndex.get(receiverBinding.toLowerCase()) || [];
+      const externalReceiverOwner = receiverOwners.find((owner) => owner.filePath !== file.path);
+      if (externalReceiverOwner) {
+        return {
+          ...entry,
+          targetPath: externalReceiverOwner.filePath
+        };
+      }
+    }
+
     const receiverImport = file.imports.find((importEntry) =>
       importEntry.importedSymbols?.some((symbol) => symbol.localName === entry.receiver)
     );

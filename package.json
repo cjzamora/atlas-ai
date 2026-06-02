@@ -23,5 +23,8 @@
     "repo-intelligence",
     "developer-tools"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^6.0.3"
+  }
 }

@@ -198,12 +198,12 @@ Execution adapter contract in v0:
 - `exec handoff` builds provider-specific manual export artifacts for `codex` and `claude` without making live API calls
 - `exec import` reads an external response file and stages it directly into the standard patch workflow
 - provider-specific wire details stay inside the adapter implementation
+- JavaScript and TypeScript repository scanning now uses a real TypeScript AST-backed parser, with the older heuristic scanner retained as fallback behavior for other file families
 
 Not implemented yet:
 
 - retry loops
 - semantic embeddings
-- true AST or tree-sitter parsing
 - team/shared memory
 
 These are intentionally deferred beyond v0:
@@ -212,8 +212,6 @@ These are intentionally deferred beyond v0:
   Best added in early v1, after Atlas autonomy and failure-policy boundaries are defined more clearly.
 - `semantic embeddings`
   Best added only if retrieval quality becomes a real bottleneck on larger repos.
-- `true AST or tree-sitter parsing`
-  Best added in early v1. This is the highest-priority technical upgrade for graph quality and safer automation.
 - `team/shared memory`
   Best added later in v1 or v2, once Atlas is ready to move beyond a local single-user workflow.
 
@@ -221,10 +219,9 @@ These are intentionally deferred beyond v0:
 
 Recommended order after v0:
 
-1. True AST or tree-sitter parsing
-2. Retry loops with explicit safety boundaries
-3. Semantic retrieval if larger-repo quality demands it
-4. Shared/team memory and broader orchestration
+1. Retry loops with explicit safety boundaries
+2. Semantic retrieval if larger-repo quality demands it
+3. Shared/team memory and broader orchestration
 
 ## Release Status
 
