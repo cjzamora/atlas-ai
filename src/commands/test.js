@@ -80,6 +80,7 @@ async function runArtifactTests({ flags }) {
     artifactId,
     task: updatedArtifact.task,
     status: validation.status,
+    failureReason: validation.failureReason || null,
     summary: validation.summary,
     results: validation.results,
     validation

@@ -78,6 +78,13 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
     assert.equal(runs[0].totalTokens, 30);
     assert.equal(runs[0].selectedTests, 2);
     assert.deepEqual(runs[0].changedFiles, ["src/services/pricing.js"]);
+
+    const failedRuns = listRuns(runtime.paths.dbFile, {
+      limit: 10,
+      command: "exec_run",
+      status: "failed"
+    });
+    assert.equal(failedRuns[0].failureReason, "OPENAI_API_KEY is not set.");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

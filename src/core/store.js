@@ -268,6 +268,16 @@ export function getCostReport(dbFile) {
     `
   )[0] || {};
 
+  const outcomeRows = querySql(
+    dbFile,
+    `
+      select output_json as outputJson
+      from runs
+      where output_json is not null and output_json <> '';
+    `
+  );
+  const outcomeCounts = summarizeOutcomeCounts(outcomeRows);
+
   return {
     totalRuns: Number(runCounts.totalRuns || 0),
     indexRuns: Number(runCounts.indexRuns || 0),
@@ -282,6 +292,10 @@ export function getCostReport(dbFile) {
     callEdges: Number(edgeStats.callEdges || 0),
     testEdges: Number(edgeStats.testEdges || 0),
     testedByEdges: Number(edgeStats.testedByEdges || 0),
+    confirmedRuns: outcomeCounts.confirmed,
+    validationFailedRuns: outcomeCounts.validationFailed,
+    applyFailedValidationRuns: outcomeCounts.applyFailedValidation,
+    rolledBackRuns: outcomeCounts.rolledBack,
     tokenEstimates: "Model token tracking is not wired yet in v0 scaffold."
   };
 }
@@ -407,6 +421,20 @@ function deriveRunOutcomeMemory(output) {
     };
   }
 
+  if (command === "fix" && outcome === "apply_failed_validation") {
+    const failureReason = output.failureReason || output.apply?.failureReason || "unknown validation failure";
+    return {
+      summary: `Post-apply validation failed for "${task}": ${failureReason}.`,
+      tags: [
+        "type:run_outcome",
+        "command:fix",
+        "outcome:apply_failed_validation",
+        ...tokenTags(task)
+      ],
+      confidence: "high"
+    };
+  }
+
   return null;
 }
 
@@ -439,6 +467,7 @@ function summarizeRun(row) {
     task: output?.task || row.input,
     status: row.status,
     outcome: output?.status || row.status,
+    failureReason: output?.failureReason || output?.error?.message || output?.validation?.failureReason || output?.postApplyValidation?.failureReason || null,
     provider: metadata.provider || null,
     model: metadata.model || null,
     selectedTests: Number(metrics.selectedTests || 0),
@@ -485,6 +514,34 @@ function parseJson(value) {
   } catch {
     return {};
   }
+}
+
+function summarizeOutcomeCounts(rows) {
+  return rows.reduce(
+    (summary, row) => {
+      const output = parseJson(row.outputJson);
+      if (String(output?.command || "") !== "fix") {
+        return summary;
+      }
+      const outcome = String(output?.status || "");
+      if (outcome === "confirmed") {
+        summary.confirmed += 1;
+      } else if (outcome === "validation_failed") {
+        summary.validationFailed += 1;
+      } else if (outcome === "apply_failed_validation") {
+        summary.applyFailedValidation += 1;
+      } else if (outcome === "rolled_back") {
+        summary.rolledBack += 1;
+      }
+      return summary;
+    },
+    {
+      confirmed: 0,
+      validationFailed: 0,
+      applyFailedValidation: 0,
+      rolledBack: 0
+    }
+  );
 }
 
 function escapeSql(value) {

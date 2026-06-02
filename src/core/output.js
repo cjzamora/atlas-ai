@@ -75,6 +75,10 @@ function formatHuman(value) {
     return formatTestRunOutput(value);
   }
 
+  if (value.command === "cost report") {
+    return formatCostReportOutput(value);
+  }
+
   const lines = [];
   for (const [key, entry] of Object.entries(value)) {
     lines.push(`${key}: ${formatEntry(entry)}`);
@@ -185,6 +189,10 @@ function formatFixOutput(value) {
     );
   }
 
+  if (value.failureReason) {
+    lines.push("", `Failure reason: ${value.failureReason}`);
+  }
+
   if (!value.ok && value.stage?.error?.message) {
     lines.push("", `Error: ${value.stage.error.message}`);
   }
@@ -215,6 +223,9 @@ function formatRunsOutput(value) {
     if (run.changedFiles?.length) {
       lines.push(`  changed=${run.changedFiles.join(", ")}`);
     }
+    if (run.failureReason) {
+      lines.push(`  reason=${run.failureReason}`);
+    }
   }
 
   return lines.join("\n");
@@ -238,6 +249,22 @@ function formatMemorySearchOutput(value) {
   }
 
   return lines.join("\n");
+}
+
+function formatCostReportOutput(value) {
+  const report = value.report || {};
+  return [
+    "Cost report:",
+    `- Total runs: ${report.totalRuns ?? 0}`,
+    `- Fix runs: ${report.fixRuns ?? 0}`,
+    `- Confirmed runs: ${report.confirmedRuns ?? 0}`,
+    `- Validation failed runs: ${report.validationFailedRuns ?? 0}`,
+    `- Apply failed validation runs: ${report.applyFailedValidationRuns ?? 0}`,
+    `- Rolled back runs: ${report.rolledBackRuns ?? 0}`,
+    `- Indexed files: ${report.indexedFiles ?? 0}`,
+    `- Total edges: ${report.totalEdges ?? 0}`,
+    `- Token estimates: ${report.tokenEstimates ?? "unknown"}`
+  ].join("\n");
 }
 
 function formatExecOutput(value) {
@@ -356,6 +383,9 @@ function formatPatchShowOutput(value) {
       `- Failed: ${artifact.postApplyValidation.summary?.failed ?? 0}`,
       `- Skipped: ${artifact.postApplyValidation.summary?.skipped ?? 0}`
     );
+    if (artifact.postApplyValidation.failureReason) {
+      lines.push(`- Reason: ${artifact.postApplyValidation.failureReason}`);
+    }
   }
 
   if (artifact.appliedAt || (artifact.appliedFiles || []).length > 0) {
@@ -392,7 +422,7 @@ function formatPatchApplyOutput(value) {
 }
 
 function formatPatchConfirmOutput(value) {
-  return [
+  const lines = [
     `Artifact: ${value.artifactId || "unknown"}`,
     `Task: ${value.task || "unknown"}`,
     `Status: ${value.status || "unknown"}`,
@@ -401,7 +431,11 @@ function formatPatchConfirmOutput(value) {
     `- Passed: ${value.postApplyValidation?.summary?.passed ?? 0}`,
     `- Failed: ${value.postApplyValidation?.summary?.failed ?? 0}`,
     `- Skipped: ${value.postApplyValidation?.summary?.skipped ?? 0}`
-  ].join("\n");
+  ];
+  if (value.failureReason) {
+    lines.push(`- Reason: ${value.failureReason}`);
+  }
+  return lines.join("\n");
 }
 
 function formatPatchRollbackOutput(value) {
@@ -444,6 +478,7 @@ function formatTestRunOutput(value) {
     `- Passed: ${value.summary?.passed ?? 0}`,
     `- Failed: ${value.summary?.failed ?? 0}`,
     `- Skipped: ${value.summary?.skipped ?? 0}`,
+    ...(value.failureReason ? [`- Reason: ${value.failureReason}`] : []),
     "",
     "Results:"
   ];

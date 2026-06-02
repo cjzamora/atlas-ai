@@ -395,6 +395,7 @@ async function confirmPatch({ args, flags }) {
     artifactId,
     task: updatedArtifact.task,
     status: nextStatus,
+    failureReason: postApplyValidation.failureReason || null,
     postApplyValidation,
     artifact: updatedArtifact
   };

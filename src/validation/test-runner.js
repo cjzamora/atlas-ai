@@ -34,13 +34,15 @@ export async function runSelectedTests({ rootDir, selectedTests }) {
     }
 
     const summary = summarizeResults(results);
+    const failureReason = deriveFailureReason(results);
     const finishedAt = new Date().toISOString();
     return {
       status: summary.failed > 0 ? "failed" : summary.passed > 0 ? "passed" : "skipped",
       startedAt,
       finishedAt,
       summary,
-      results
+      results,
+      failureReason
     };
   } finally {
     await fs.rm(executableRoot, { recursive: true, force: true });
@@ -165,6 +167,20 @@ function summarizeResults(results) {
       skipped: 0
     }
   );
+}
+
+function deriveFailureReason(results) {
+  for (const result of results) {
+    if (result?.status === "failed" && result?.error?.message) {
+      return result.error.message;
+    }
+    for (const testCase of result?.cases || []) {
+      if (testCase?.status === "failed" && testCase?.error?.message) {
+        return testCase.error.message;
+      }
+    }
+  }
+  return null;
 }
 
 async function collectSourceFiles(rootDir) {

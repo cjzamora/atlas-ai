@@ -162,6 +162,7 @@ test("fix command stops before apply when validation fails", async () => {
     assert.equal(result.status, "validation_failed");
     assert.equal(result.stage.status, "staged");
     assert.ok(["failed", "skipped"].includes(result.validation.status));
+    assert.equal(result.failureReason, null);
     assert.equal(result.apply, null);
     assert.equal(result.metrics.totalTokens, 30);
     assert.equal(result.metrics.stageTokens, 30);
@@ -169,6 +170,9 @@ test("fix command stops before apply when validation fails", async () => {
 
     const source = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
     assert.match(source, /Math\.min\(subtotal, coupon\.amountOff \|\| 0\)/);
+
+    const report = getCostReport(runtime.paths.dbFile);
+    assert.equal(report.validationFailedRuns, 1);
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY;
@@ -265,12 +269,16 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
     assert.equal(result.apply.status, "apply_failed_validation");
     assert.equal(result.rollback.status, "rolled_back");
     assert.equal(result.artifact.status, "rolled_back");
+    assert.equal(result.failureReason, "post-apply regression");
     assert.equal(result.metrics.totalTokens, 30);
     assert.equal(result.metrics.rolledBackFiles, 1);
     assert.equal(result.phaseSummary.at(-1).phase, "rollback");
 
     const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
     assert.equal(restoredSource, originalSource);
+
+    const report = getCostReport(runtime.paths.dbFile);
+    assert.equal(report.rolledBackRuns, 1);
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY;

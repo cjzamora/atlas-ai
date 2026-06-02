@@ -372,12 +372,15 @@ test("patch confirm marks the artifact when post-apply validation fails", async 
     assert.equal(confirmed.status, "apply_failed_validation");
     assert.equal(confirmed.postApplyValidation.status, "failed");
     assert.equal(confirmed.postApplyValidation.summary.failed, 1);
+    assert.equal(confirmed.postApplyValidation.failureReason, "pricing regression");
+    assert.equal(confirmed.failureReason, "pricing regression");
 
     const stored = JSON.parse(
       await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
     );
     assert.equal(stored.status, "apply_failed_validation");
     assert.equal(stored.postApplyValidation.status, "failed");
+    assert.equal(stored.postApplyValidation.failureReason, "pricing regression");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
