@@ -122,6 +122,9 @@ function formatPlanOutput(value) {
     "Selected tests:",
     ...formatLines(plan.selectedTests),
     "",
+    "Prior patterns:",
+    ...formatLines((plan.priorPatterns || []).map((pattern) => `${pattern.outcome}: ${pattern.summary}`)),
+    "",
     "Validation:",
     `- Mode: ${plan.validationStrategy?.mode || "unknown"}`,
     `- Direct tests: ${(plan.validationStrategy?.directTests || []).join(", ") || "none"}`,
@@ -143,6 +146,9 @@ function formatContextOutput(value) {
     "",
     "Selected tests:",
     ...formatLines(bundle.selectedTests),
+    "",
+    "Memory hints:",
+    ...formatLines((bundle.memoryHints || []).map((hint) => `${hint.outcome}: ${hint.summary}`)),
     "",
     "Bundle files:"
   ];

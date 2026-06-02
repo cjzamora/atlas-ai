@@ -10,6 +10,7 @@ This v0 focuses on the layers that should happen before a coding model is asked 
 - deterministic planning
 - impacted-test selection
 - compact context bundle generation
+- advisory reuse of prior confirmed fix patterns during planning and context assembly
 
 It is intentionally local-first and dependency-light.
 
@@ -133,6 +134,7 @@ Implemented:
 - aggregated `fix` metrics for tokens, selected tests, and phase status
 - filtered run history with summarized outcomes
 - lightweight memory extraction from confirmed and rolled-back fix runs
+- advisory prior-pattern hints in `plan` and `context` from relevant confirmed fix history
 
 Not implemented yet:
 

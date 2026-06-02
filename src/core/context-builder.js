@@ -40,6 +40,12 @@ export async function buildContextBundle({ rootDir, task, classification, eviden
     relatedDependencies: plan.relatedDependencies,
     selectedTests: plan.selectedTests,
     callHints: plan.callHints,
+    memoryHints: (plan.priorPatterns || []).slice(0, 3).map((pattern) => ({
+      summary: pattern.summary,
+      outcome: pattern.outcome,
+      files: pattern.files || [],
+      tests: pattern.tests || []
+    })),
     validationStrategy: plan.validationStrategy,
     files
   };

@@ -3,6 +3,7 @@ import { searchEvidence } from "../core/retrieval.js";
 import { classifyTask, buildPlanArtifact } from "../core/planner.js";
 import { selectImpactedTests } from "../validation/test-selection.js";
 import { buildContextBundle } from "../core/context-builder.js";
+import { findRelevantRunPatterns } from "../core/store.js";
 
 export async function contextCommand({ args, flags }) {
   const task = args.join(" ").trim();
@@ -17,7 +18,8 @@ export async function contextCommand({ args, flags }) {
   const impacted = classification.requiresTests
     ? selectImpactedTests(runtime.paths.dbFile, task, limit)
     : { impactedFiles: [], tests: [] };
-  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
+  const priorPatterns = findRelevantRunPatterns(runtime.paths.dbFile, task, 3);
+  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted, priorPatterns);
   const bundle = await buildContextBundle({
     rootDir: runtime.rootDir,
     task,

@@ -232,6 +232,26 @@ export function searchMemory(dbFile, query, limit) {
   ).map((row) => summarizeMemoryRecord(row));
 }
 
+export function findRelevantRunPatterns(dbFile, query, limit = 3) {
+  const matches = searchMemory(dbFile, query, Math.max(1, Number(limit || 3)) * 4)
+    .filter((entry) => entry.type === "run_outcome" && entry.tags.includes("command:fix"))
+    .slice(0, Math.max(1, Number(limit || 3)));
+
+  return matches.map((entry) => ({
+    id: entry.id,
+    sourceRunId: entry.sourceRunId,
+    summary: entry.summary,
+    outcome: extractTaggedValue(entry.tags, "outcome") || "unknown",
+    files: entry.tags
+      .filter((tag) => tag.startsWith("file:"))
+      .map((tag) => tag.slice("file:".length)),
+    tests: entry.tags
+      .filter((tag) => tag.startsWith("test:"))
+      .map((tag) => tag.slice("test:".length)),
+    confidence: entry.confidence
+  }));
+}
+
 export function getCostReport(dbFile) {
   const runCounts = querySql(
     dbFile,
@@ -401,6 +421,8 @@ function deriveRunOutcomeMemory(output) {
         "type:run_outcome",
         "command:fix",
         "outcome:confirmed",
+        ...changedFiles.map((file) => `file:${file}`),
+        ...selectedTests.map((testPath) => `test:${testPath}`),
         ...tokenTags(task)
       ],
       confidence: "high"
@@ -415,6 +437,7 @@ function deriveRunOutcomeMemory(output) {
         "type:run_outcome",
         "command:fix",
         "outcome:rolled_back",
+        ...rolledBackFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
       confidence: "high"
@@ -423,12 +446,14 @@ function deriveRunOutcomeMemory(output) {
 
   if (command === "fix" && outcome === "apply_failed_validation") {
     const failureReason = output.failureReason || output.apply?.failureReason || "unknown validation failure";
+    const changedFiles = output.apply?.changedFiles || [];
     return {
       summary: `Post-apply validation failed for "${task}": ${failureReason}.`,
       tags: [
         "type:run_outcome",
         "command:fix",
         "outcome:apply_failed_validation",
+        ...changedFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
       confidence: "high"
@@ -493,6 +518,11 @@ function summarizeMemoryRecord(row) {
     confidence: row.confidence,
     createdAt: row.createdAt
   };
+}
+
+function extractTaggedValue(tags, key) {
+  const match = (tags || []).find((entry) => entry.startsWith(`${key}:`));
+  return match ? match.slice(`${key}:`.length) : null;
 }
 
 function tokenTags(value) {
