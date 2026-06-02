@@ -10,6 +10,7 @@ export function buildExecutionRequest({ task, classification, bundle, prompt, pr
     risk: classification.risk,
     contextBudget: bundle.contextBudget,
     selectedTests: bundle.selectedTests,
+    memoryHints: bundle.memoryHints || [],
     files: bundle.files.map((file) => ({
       path: file.path,
       role: file.role,

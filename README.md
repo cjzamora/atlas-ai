@@ -135,6 +135,7 @@ Implemented:
 - filtered run history with summarized outcomes
 - lightweight memory extraction from confirmed and rolled-back fix runs
 - advisory prior-pattern hints in `plan` and `context` from relevant confirmed fix history
+- advisory prior-pattern hints in `prompt`, `exec prepare`, and staged patch requests from relevant confirmed fix history
 
 Not implemented yet:
 

@@ -11,6 +11,7 @@ import { buildPatchArtifact, readPatchArtifact, updatePatchArtifact, writePatchA
 import { applyPatchArtifactToRepo, rollbackPatchArtifact } from "../core/patch-apply.js";
 import { runSelectedTests } from "../validation/test-runner.js";
 import { resolveModelConfig } from "../core/model-config.js";
+import { findRelevantRunPatterns } from "../core/store.js";
 
 const USAGE = 'Usage: atlas patch stage "<task>"\n       atlas patch show <artifact-id>\n       atlas patch apply <artifact-id>\n       atlas patch confirm <artifact-id>\n       atlas patch rollback <artifact-id>';
 
@@ -191,7 +192,8 @@ async function buildPatchRequest({ runtime, task, limit, provider, model }) {
   const impacted = classification.requiresTests
     ? selectImpactedTests(runtime.paths.dbFile, task, limit)
     : { impactedFiles: [], tests: [] };
-  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
+  const priorPatterns = findRelevantRunPatterns(runtime.paths.dbFile, task, 3);
+  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted, priorPatterns);
   const bundle = await buildContextBundle({
     rootDir: runtime.rootDir,
     task,

@@ -30,6 +30,9 @@ export function buildPromptFromBundle(bundle) {
     "## Selected Tests",
     ...formatBulletList(bundle.selectedTests),
     "",
+    "## Prior Successful Patterns",
+    ...formatMemoryHints(bundle.memoryHints),
+    "",
     "## Call Hints",
     ...formatBulletList(bundle.callHints),
     "",
@@ -60,6 +63,7 @@ export function buildPromptFromBundle(bundle) {
     "- Explain the likely root cause briefly.",
     "- Propose the smallest safe code change.",
     "- Reference which selected tests should be run.",
+    "- Treat prior successful patterns as advisory guidance only when they still fit the current repo evidence.",
     "- If producing code, prefer a diff-oriented answer."
   );
 
@@ -78,4 +82,21 @@ function formatNamedList(label, items) {
     return [`- ${label}: none`];
   }
   return [`- ${label}: ${items.join(", ")}`];
+}
+
+function formatMemoryHints(items) {
+  if (!items || items.length === 0) {
+    return ["- none"];
+  }
+
+  return items.flatMap((item) => {
+    const lines = [`- ${item.outcome || "unknown"}: ${item.summary}`];
+    if (item.files?.length) {
+      lines.push(`  files: ${item.files.join(", ")}`);
+    }
+    if (item.tests?.length) {
+      lines.push(`  tests: ${item.tests.join(", ")}`);
+    }
+    return lines;
+  });
 }
