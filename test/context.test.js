@@ -108,3 +108,63 @@ test("context bundle includes compact memory hints from prior confirmed fixes", 
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("context bundle centers the excerpt on the matched symbol, not the file head", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-context-window-"));
+  try {
+    const workingRoot = path.join(tempRoot, "wide-repo");
+    await fs.mkdir(path.join(workingRoot, "src", "services"), { recursive: true });
+
+    // A file large enough that head-truncation (first 1400 chars) would never reach
+    // the target symbol, which lives at the very end.
+    const filler = Array.from({ length: 90 }, (_, index) => `const filler${index} = ${index};`).join("\n");
+    const wideSource = [
+      "// HEAD_MARKER top of file",
+      filler,
+      "export function targetSymbol(input) {",
+      "  // TARGET_REGION unique marker",
+      "  return input * 2;",
+      "}"
+    ].join("\n");
+    await fs.writeFile(path.join(workingRoot, "src", "services", "wide.js"), wideSource);
+
+    const task = "improve targetSymbol scaling";
+    const plan = {
+      summary: "scale target symbol",
+      likelyFiles: ["src/services/wide.js"],
+      relatedDependencies: [],
+      selectedTests: [],
+      callHints: [],
+      priorPatterns: [],
+      memoryAssistance: {
+        matchedPatternCount: 0,
+        retrievalBoostApplied: false,
+        testBoostApplied: false,
+        boostedPaths: [],
+        boostedTests: []
+      },
+      validationStrategy: { mode: "none", rationale: "", directTests: [], expandedTests: [] },
+      codexNeeded: false
+    };
+    const evidenceMatches = [
+      { path: "src/services/wide.js", symbol: "targetSymbol", summary: "wide module" }
+    ];
+
+    const bundle = await buildContextBundle({
+      rootDir: workingRoot,
+      task,
+      classification: classifyTask(task),
+      evidenceMatches,
+      plan
+    });
+
+    const wide = bundle.files.find((file) => file.path === "src/services/wide.js");
+    assert.ok(wide, "wide.js should be in the bundle");
+    assert.ok(wide.excerpt.includes("targetSymbol"), "excerpt should contain the matched symbol");
+    assert.ok(wide.excerpt.includes("TARGET_REGION"), "excerpt should contain the symbol's body");
+    assert.ok(!wide.excerpt.includes("HEAD_MARKER"), "excerpt should not be anchored at the file head");
+    assert.ok(wide.excerpt.startsWith("..."), "excerpt should mark a non-head window");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

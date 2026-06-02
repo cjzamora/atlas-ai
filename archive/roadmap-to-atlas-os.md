@@ -220,15 +220,17 @@ manual handoff/import round-trip is a working fallback.
   dependency-light per-language extractors (Python/Ruby/Rust/Go) producing real import + call edges,
   with call resolution via the language-agnostic symbol index. A full tree-sitter AST upgrade stays
   evidence-gated on a larger real repo (the small held-outs don't yet demand it).
-- **Context bundles are head-truncated, not symbol-aware.** `compressContent`
-  ([context-builder.js:61-73](../src/core/context-builder.js)) slices the first 1400 chars + `"\n..."`.
-  A matched symbol past char 1400 never reaches the model; invisible to the retrieval eval.
+- **Context bundles were head-truncated — now symbol-aware (roadmap #6 done).** `compressContent`
+  ([context-builder.js](../src/core/context-builder.js)) previously sliced the first 1400 chars, so a
+  matched symbol past char 1400 never reached the model. It now centers the excerpt on the matched
+  symbol's region (or the first query-token line), filling the budget forward then backward, with
+  head-truncation only as a fallback. Verified on a fixture where the target symbol sits past the head.
 - **Default model `gpt-5.4`** is a hardcoded literal ([model-config.js:5](../src/core/model-config.js)).
 
 ### Work to close
 - **Multi-language graph via tree-sitter** (#3): AST-backed edges for ≥1 non-JS/TS language, with no
   JS/TS regression on the held-out eval.
-- **Symbol-aware windowing** (#6): center excerpts on the matched symbol's region.
+- **Symbol-aware windowing** (#6): center excerpts on the matched symbol's region. **DONE.**
 
 ### Prior-doc status
 - tree-sitter: **promoted** from Deferred (v2 P2.5) to the critical path, *because of the language axis
@@ -309,7 +311,7 @@ repo-derived signals serves the north star *and* unblocks Gate 1's generalizatio
 | 3 ✅ | **Multi-language graph (dependency-light, not tree-sitter)** | 3 (language) | The graph is the main domain-free signal; it must work beyond JS/TS. | **DONE** — chose dependency-light per-language extractors over tree-sitter (no eval evidence yet justifying a WASM parser; preserves the dependency-light ethos). `scanner.js` now extracts symbols/imports/calls for Python, Ruby, Rust, Go; call edges resolve via the language-agnostic symbol index. Measured edges: Python 18 import/35 call, Go 34 call, Ruby 13/11, Rust 10/13. Held-out hit rate unchanged at 1.00/1.00; JS/TS unaffected. Upgrade to tree-sitter remains evidence-gated on a larger real repo. |
 | 4 | **Full-suite miss-rate harness** | 1 (safety) | Quantifies the depth-2 recall cliff and the trust level of `confirm`. | A run mode runs the full suite alongside the selected subset; the ledger surfaces a rolling miss-rate. |
 | 5 | **Document + version the public contracts** | 2 | The operator layer must build against a stable, versioned surface. | `CONTRACTS.md` documents every `--json` + artifact shape; each payload carries `schemaVersion`; the `execution-builder` duplication is resolved. |
-| 6 | **Symbol-aware context windowing** | 3 (usability) | Head-truncation can omit the target symbol. | For a symbol past 1400 chars, the excerpt contains its region; verified on a fixture. |
+| 6 ✅ | **Symbol-aware context windowing** | 3 (usability) | Head-truncation can omit the target symbol. | **DONE** — `compressContent` now centers the excerpt on the matched symbol (or first query-token line), head-truncation only as fallback; verified on a >1400-char fixture where the symbol sits past the head. |
 | 7 | **Wire token/cost aggregation into `cost report`** | 5 | Per-run tokens already exist; surfacing them is what routing/budgeting consumes. | `cost report` sums real tokens (+ optional per-model cost) instead of the placeholder string. |
 
 Sequencing: **#1 first** → **#2** (measures #1); **#3** supports #1 for non-JS/TS and pairs with #2.
