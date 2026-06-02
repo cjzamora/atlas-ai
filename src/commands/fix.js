@@ -12,7 +12,7 @@ export async function fixCommand({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const logger = createRunLogger(runtime.paths.dbFile);
-  const { provider, model } = resolveModelConfig(flags);
+  const { provider, model } = resolveModelConfig(flags, runtime.config?.model);
   const run = logger.startRun({
     command: "fix",
     input: task,

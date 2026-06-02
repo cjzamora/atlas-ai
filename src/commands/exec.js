@@ -29,7 +29,7 @@ export async function execCommand({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 6);
-  const { provider, model } = resolveModelConfig(flags);
+  const { provider, model } = resolveModelConfig(flags, runtime.config?.model);
   const classification = classifyTask(task);
   const evidence = searchEvidence(runtime.paths.dbFile, task, limit);
   const impacted = classification.requiresTests

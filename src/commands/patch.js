@@ -45,7 +45,7 @@ async function stagePatch({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 6);
-  const { provider, model } = resolveModelConfig(flags);
+  const { provider, model } = resolveModelConfig(flags, runtime.config?.model);
   const request = await buildPatchRequest({
     runtime,
     task,

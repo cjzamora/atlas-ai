@@ -32,7 +32,8 @@ export async function ensureAtlasRuntime(rootFlag) {
         {
           version: 1,
           createdAt: new Date().toISOString(),
-          rootDir
+          rootDir,
+          model: { provider: "openai", model: "gpt-5.4" }
         },
         null,
         2
@@ -40,7 +41,14 @@ export async function ensureAtlasRuntime(rootFlag) {
     );
   }
 
+  let config = {};
+  try {
+    config = JSON.parse(await fs.readFile(configFile, "utf8"));
+  } catch {
+    config = {};
+  }
+
   initializeDatabase(paths.dbFile);
 
-  return { rootDir, paths: { ...paths, configFile } };
+  return { rootDir, paths: { ...paths, configFile }, config };
 }

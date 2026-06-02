@@ -10,6 +10,19 @@ test("resolveModelConfig uses gpt-5.4 as the default OpenAI model", () => {
   assert.equal(config.model, "gpt-5.4");
 });
 
+test("resolveModelConfig honors per-repo config defaults and lets flags win", () => {
+  const defaults = { provider: "openai", model: "gpt-5.5" };
+
+  // Config default applies when no flag is given.
+  assert.equal(resolveModelConfig({}, defaults).model, "gpt-5.5");
+  // Explicit flag still overrides the config default.
+  assert.equal(resolveModelConfig({ model: "gpt-5.6" }, defaults).model, "gpt-5.6");
+  // A config model bound to a different provider does not leak across providers.
+  const anthropic = resolveModelConfig({ provider: "anthropic" }, defaults);
+  assert.equal(anthropic.provider, "anthropic");
+  assert.equal(anthropic.model, "default");
+});
+
 test("buildExecutionRequest uses the resolved default model when none is provided", () => {
   const config = resolveModelConfig({});
   const request = buildExecutionRequest({
