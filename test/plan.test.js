@@ -176,36 +176,36 @@ test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker
   }
 });
 
-test("retrieval ranking prefers service implementations over resolver wrappers for service-shaped queries", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-service-role-"));
+test("retrieval ranking prefers implementation files over thin wrapper files for implementation-shaped queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-impl-role-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "stripe-connect"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "channel"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.service.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.core.ts"),
       [
-        "export class StripeConnectService {",
-        "  listCharges() { return 'charges'; }",
-        "  startCheckoutSession() { return 'intake'; }",
+        "export class ChannelCore {",
+        "  listChannelMetrics() { return 'metrics'; }",
+        "  startChannelStream() { return 'stream'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.gateway.ts"),
       [
-        "import { StripeConnectService } from './stripe-connect.service';",
-        "export class StripeConnectResolver {",
-        "  constructor(private readonly stripeConnect: StripeConnectService) {}",
-        "  stripeConnectAccounts() { return this.stripeConnect.listCharges(); }",
+        "import { ChannelCore } from './channel.core';",
+        "export class ChannelGateway {",
+        "  constructor(private readonly channel: ChannelCore) {}",
+        "  channelOverview() { return this.channel.listChannelMetrics(); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.model.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.types.ts"),
       [
-        "export type StripeConnectAccountSummary = {",
-        "  accountId: string;",
+        "export type ChannelSummary = {",
+        "  streamId: string;",
         "};"
       ].join("\n")
     );
@@ -216,46 +216,46 @@ test("retrieval ranking prefers service implementations over resolver wrappers f
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "stripe connect payments intake connected account list charges",
+      "channel stream metrics list overview",
       5
     );
 
-    assert.equal(evidence.matches[0].path, "src/modules/stripe-connect/stripe-connect.service.ts");
+    assert.equal(evidence.matches[0].path, "src/modules/channel/channel.core.ts");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("retrieval ranking prefers validation files over dashboard resolver wrappers for validation-shaped queries", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-validation-role-"));
+test("retrieval ranking prefers rules files over proxy gateway wrappers for rules-shaped queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-rules-role-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "transfermate-beneficiaries"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "directory-contacts"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "transfermate-beneficiary.validation.ts"),
+      path.join(workingRoot, "src", "modules", "directory-contacts", "directory-contact.rules.ts"),
       [
-        "export function assertValidAccountNumber(countryCode, accountNumber) {",
-        "  return `${countryCode}:${accountNumber}`;",
+        "export function checkContactAddressRegion(region, address) {",
+        "  return `${region}:${address}`;",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "dashboard-transfermate-beneficiary.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "directory-contacts", "proxy-directory-contact.gateway.ts"),
       [
-        "import { assertValidAccountNumber } from './transfermate-beneficiary.validation';",
-        "export class DashboardTransfermateBeneficiaryResolver {",
-        "  transfermateBeneficiariesForApp() {",
-        "    return assertValidAccountNumber('US', '123');",
+        "import { checkContactAddressRegion } from './directory-contact.rules';",
+        "export class ProxyDirectoryContactGateway {",
+        "  contactsForWorkspace() {",
+        "    return checkContactAddressRegion('eu', 'main');",
         "  }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "transfermate-beneficiary.model.ts"),
+      path.join(workingRoot, "src", "modules", "directory-contacts", "directory-contact.types.ts"),
       [
-        "export type TransfermateBeneficiary = {",
-        "  accountNumber: string;",
+        "export type DirectoryContact = {",
+        "  address: string;",
         "};"
       ].join("\n")
     );
@@ -266,56 +266,56 @@ test("retrieval ranking prefers validation files over dashboard resolver wrapper
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "transfermate beneficiary validation account number country",
+      "directory contact rules address region",
       5
     );
 
     assert.equal(
       evidence.matches[0].path,
-      "src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts"
+      "src/modules/directory-contacts/directory-contact.rules.ts"
     );
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("retrieval ranking prefers webhook service and queue implementations over resolver wrappers for delivery queries", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-webhook-role-"));
+test("retrieval ranking prefers core and queue implementations over gateway wrappers for delivery queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-delivery-role-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "webhooks"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "events"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhooks.service.ts"),
+      path.join(workingRoot, "src", "modules", "events", "events.core.ts"),
       [
-        "export class WebhooksService {",
+        "export class EventsCore {",
         "  processProviderEvent() { return 'processed'; }",
-        "  retryWebhookDelivery() { return 'retried'; }",
+        "  retryEventDelivery() { return 'retried'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhook-queue.service.ts"),
+      path.join(workingRoot, "src", "modules", "events", "event-queue.core.ts"),
       [
-        "export class WebhookQueueService {",
+        "export class EventQueueCore {",
         "  enqueueRetryJob() { return 'queued'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhooks.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "events", "events.gateway.ts"),
       [
-        "import { WebhooksService } from './webhooks.service';",
-        "export class WebhooksResolver {",
-        "  constructor(private readonly webhooksService: WebhooksService) {}",
-        "  webhookEvents() { return this.webhooksService.processProviderEvent(); }",
+        "import { EventsCore } from './events.core';",
+        "export class EventsGateway {",
+        "  constructor(private readonly eventsCore: EventsCore) {}",
+        "  eventOverview() { return this.eventsCore.processProviderEvent(); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhook.model.ts"),
+      path.join(workingRoot, "src", "modules", "events", "event.types.ts"),
       [
-        "export type WebhookEvent = {",
+        "export type EventRecord = {",
         "  provider: string;",
         "};"
       ].join("\n")
@@ -327,15 +327,15 @@ test("retrieval ranking prefers webhook service and queue implementations over r
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "webhook delivery retry queue provider event processing",
+      "event delivery retry queue provider processing",
       5
     );
 
     assert.ok(
-      evidence.matches.slice(0, 2).some((match) => match.path === "src/modules/webhooks/webhooks.service.ts")
+      evidence.matches.slice(0, 2).some((match) => match.path === "src/modules/events/events.core.ts")
     );
     assert.ok(
-      evidence.matches.slice(0, 2).some((match) => match.path === "src/modules/webhooks/webhook-queue.service.ts")
+      evidence.matches.slice(0, 2).some((match) => match.path === "src/modules/events/event-queue.core.ts")
     );
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -343,62 +343,62 @@ test("retrieval ranking prefers webhook service and queue implementations over r
 });
 
 test("retrieval ranking prefers implementation files over thin wrapper and type-only files for sync queries", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-mapper-role-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-sync-role-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "xero"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "sync"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.mapper.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "sync.adapter.ts"),
       [
-        "export function mapTenantWebhookPayload(payload) {",
-        "  return payload.tenantId;",
+        "export function adaptSyncPayload(payload) {",
+        "  return payload.recordId;",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.service.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "sync.core.ts"),
       [
-        "import { mapTenantWebhookPayload } from './xero.mapper';",
-        "export class XeroService {",
-        "  syncTenantWebhook(payload) { return mapTenantWebhookPayload(payload); }",
+        "import { adaptSyncPayload } from './sync.adapter';",
+        "export class SyncCore {",
+        "  runSyncRecord(payload) { return adaptSyncPayload(payload); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.inngest.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "sync.worker.ts"),
       [
-        "import { XeroService } from './xero.service';",
-        "export function syncTenantJob(service, payload) {",
-        "  return service.syncTenantWebhook(payload);",
+        "import { SyncCore } from './sync.core';",
+        "export function syncRecordJob(core, payload) {",
+        "  return core.runSyncRecord(payload);",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "sync.gateway.ts"),
       [
-        "import { XeroService } from './xero.service';",
-        "export class XeroResolver {",
-        "  constructor(private readonly xeroService: XeroService) {}",
-        "  xeroTenant() { return this.xeroService.syncTenantWebhook({ tenantId: '1' }); }",
+        "import { SyncCore } from './sync.core';",
+        "export class SyncGateway {",
+        "  constructor(private readonly syncCore: SyncCore) {}",
+        "  syncRecord() { return this.syncCore.runSyncRecord({ recordId: '1' }); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "dashboard-xero.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "proxy-sync.gateway.ts"),
       [
-        "import { XeroService } from './xero.service';",
-        "export class DashboardXeroResolver {",
-        "  constructor(private readonly xeroService: XeroService) {}",
-        "  dashboardTenant() { return this.xeroService.syncTenantWebhook({ tenantId: '1' }); }",
+        "import { SyncCore } from './sync.core';",
+        "export class ProxySyncGateway {",
+        "  constructor(private readonly syncCore: SyncCore) {}",
+        "  proxySyncRecord() { return this.syncCore.runSyncRecord({ recordId: '1' }); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.model.ts"),
+      path.join(workingRoot, "src", "modules", "sync", "sync.types.ts"),
       [
-        "export type XeroTenant = {",
-        "  tenantId: string;",
+        "export type SyncRecord = {",
+        "  recordId: string;",
         "};"
       ].join("\n")
     );
@@ -407,60 +407,60 @@ test("retrieval ranking prefers implementation files over thin wrapper and type-
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const evidence = searchEvidence(runtime.paths.dbFile, "xero mapper sync inngest tenant webhook", 5);
+    const evidence = searchEvidence(runtime.paths.dbFile, "sync adapter record worker payload", 5);
 
-    // Convention-free ranker: a real implementation (mapper/service/inngest) leads
-    // on lexical + structural signal; the thin resolver wrappers and the type-only
-    // model file do not win. No filename-suffix weighting is involved.
+    // Convention-free ranker: a real implementation (adapter/core/worker) leads on
+    // lexical + structural signal; the thin gateway wrappers and the type-only file
+    // do not win. No filename-suffix weighting is involved.
     const implementations = [
-      "src/modules/xero/xero.mapper.ts",
-      "src/modules/xero/xero.service.ts",
-      "src/modules/xero/xero.inngest.ts"
+      "src/modules/sync/sync.adapter.ts",
+      "src/modules/sync/sync.core.ts",
+      "src/modules/sync/sync.worker.ts"
     ];
     assert.ok(
       implementations.includes(evidence.matches[0].path),
       `expected an implementation file first, got ${evidence.matches[0].path}`
     );
     const top3 = evidence.matches.slice(0, 3).map((match) => match.path);
-    assert.ok(!top3.includes("src/modules/xero/dashboard-xero.resolver.ts"));
-    assert.ok(!top3.includes("src/modules/xero/xero.model.ts"));
+    assert.ok(!top3.includes("src/modules/sync/proxy-sync.gateway.ts"));
+    assert.ok(!top3.includes("src/modules/sync/sync.types.ts"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("retrieval ranking prefers stripe connect service over model and resolver wrappers when model symbols match heavily", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-stripe-connect-model-noise-"));
+test("retrieval ranking prefers implementation over a type-only file when the type's field names match heavily", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-type-noise-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "stripe-connect"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "channel"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.service.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.core.ts"),
       [
-        "export class StripeConnectService {",
-        "  createConnectedAccountLoginLink() { return 'login-link'; }",
-        "  listConnectedAccountCharges() { return 'charges'; }",
+        "export class ChannelCore {",
+        "  createChannelStreamLink() { return 'stream-link'; }",
+        "  listChannelStreamMetrics() { return 'metrics'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.resolver.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.gateway.ts"),
       [
-        "import { StripeConnectService } from './stripe-connect.service';",
-        "export class StripeConnectResolver {",
-        "  constructor(private readonly stripeConnect: StripeConnectService) {}",
-        "  connectedAccountLoginLink() { return this.stripeConnect.createConnectedAccountLoginLink(); }",
+        "import { ChannelCore } from './channel.core';",
+        "export class ChannelGateway {",
+        "  constructor(private readonly channel: ChannelCore) {}",
+        "  channelStreamLink() { return this.channel.createChannelStreamLink(); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.model.ts"),
+      path.join(workingRoot, "src", "modules", "channel", "channel.types.ts"),
       [
-        "export type StripeConnectConnectedAccount = {",
-        "  stripeConnectAccountId: string;",
-        "  connectedAccountLoginLink: string;",
-        "  connectedAccountCharges: number;",
+        "export type ChannelStreamRecord = {",
+        "  channelStreamId: string;",
+        "  channelStreamLink: string;",
+        "  channelStreamMetrics: number;",
         "};"
       ].join("\n")
     );
@@ -471,53 +471,53 @@ test("retrieval ranking prefers stripe connect service over model and resolver w
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "stripe connect connected account onboarding login link charges",
+      "channel stream onboarding link metrics",
       5
     );
 
-    assert.equal(evidence.matches[0].path, "src/modules/stripe-connect/stripe-connect.service.ts");
+    assert.equal(evidence.matches[0].path, "src/modules/channel/channel.core.ts");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("retrieval ranking prefers provider-specific webhook controller over shared webhook service for signature queries", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-provider-webhook-controller-"));
+test("retrieval ranking prefers a domain-specific endpoint over a shared core for signature queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-endpoint-signature-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "xero"), { recursive: true });
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "webhooks"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "inbound"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "events"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero-webhook.controller.ts"),
+      path.join(workingRoot, "src", "modules", "inbound", "inbound.endpoint.ts"),
       [
-        "export class XeroWebhookController {",
-        "  verifyXeroWebhookSignature(rawBody, webhookKey) { return `${rawBody}:${webhookKey}`; }",
-        "  recordInboundXeroWebhookEvent() { return 'xero-webhook'; }",
+        "export class InboundEndpoint {",
+        "  verifyInboundSignature(rawBody, signingKey) { return `${rawBody}:${signingKey}`; }",
+        "  recordInboundChannelEvent() { return 'inbound-channel'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "xero", "xero.inngest.ts"),
+      path.join(workingRoot, "src", "modules", "inbound", "inbound.worker.ts"),
       [
-        "export function processXeroWebhookTenantJob() {",
-        "  return 'tenant-job';",
+        "export function processInboundChannelSignatureJob() {",
+        "  return 'channel-job';",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhooks.service.ts"),
+      path.join(workingRoot, "src", "modules", "events", "events.core.ts"),
       [
-        "export class WebhooksService {",
-        "  recordInboundProviderEvent() { return 'provider-event'; }",
-        "  enqueueInboundEvent() { return 'queue'; }",
+        "export class EventsCore {",
+        "  recordProviderEvent() { return 'provider-event'; }",
+        "  enqueuePendingEvent() { return 'pending'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "webhooks", "webhook.model.ts"),
+      path.join(workingRoot, "src", "modules", "events", "event.types.ts"),
       [
-        "export type WebhookEvent = {",
+        "export type EventRecord = {",
         "  signature: string;",
         "  tenant: string;",
         "};"
@@ -530,12 +530,12 @@ test("retrieval ranking prefers provider-specific webhook controller over shared
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "xero webhook signature inbound event queue tenant",
+      "inbound channel signature event queue",
       5
     );
 
-    assert.equal(evidence.matches[0].path, "src/modules/xero/xero-webhook.controller.ts");
-    assert.ok(evidence.matches.slice(0, 3).some((match) => match.path === "src/modules/xero/xero.inngest.ts"));
+    assert.equal(evidence.matches[0].path, "src/modules/inbound/inbound.endpoint.ts");
+    assert.ok(evidence.matches.slice(0, 3).some((match) => match.path === "src/modules/inbound/inbound.worker.ts"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
