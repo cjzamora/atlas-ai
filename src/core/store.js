@@ -305,6 +305,16 @@ export function getCostReport(dbFile) {
   );
   const outcomeCounts = summarizeOutcomeCounts(outcomeRows);
 
+  const tokenRows = querySql(
+    dbFile,
+    `
+      select metadata_json as metadataJson, metrics_json as metricsJson
+      from runs
+      where metrics_json is not null and metrics_json <> '';
+    `
+  );
+  const tokenUsage = summarizeTokenUsage(tokenRows);
+
   return {
     totalRuns: Number(runCounts.totalRuns || 0),
     indexRuns: Number(runCounts.indexRuns || 0),
@@ -323,7 +333,59 @@ export function getCostReport(dbFile) {
     validationFailedRuns: outcomeCounts.validationFailed,
     applyFailedValidationRuns: outcomeCounts.applyFailedValidation,
     rolledBackRuns: outcomeCounts.rolledBack,
-    tokenEstimates: "Model token tracking is not wired yet in v0 scaffold."
+    tokenUsage
+  };
+}
+
+// Aggregate the per-run token metrics that exec/patch/fix already record into a
+// total + per-model breakdown, so `cost report` exposes real usage for routing
+// and budgeting instead of a placeholder.
+function summarizeTokenUsage(rows) {
+  const byModel = new Map();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
+  let runsWithTokenData = 0;
+
+  for (const row of rows) {
+    const metrics = parseJson(row.metricsJson);
+    const metadata = parseJson(row.metadataJson);
+    const input = Number(metrics.inputTokens || 0);
+    const output = Number(metrics.outputTokens || 0);
+    const total = Number(metrics.totalTokens || 0) || input + output;
+    if (total <= 0 && input <= 0 && output <= 0) {
+      continue;
+    }
+
+    runsWithTokenData += 1;
+    inputTokens += input;
+    outputTokens += output;
+    totalTokens += total;
+
+    const provider = metrics.provider || metadata.provider || "unknown";
+    const model = metrics.model || metadata.model || "unknown";
+    const key = `${provider}:${model}`;
+    const entry = byModel.get(key) || {
+      provider,
+      model,
+      runs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    };
+    entry.runs += 1;
+    entry.inputTokens += input;
+    entry.outputTokens += output;
+    entry.totalTokens += total;
+    byModel.set(key, entry);
+  }
+
+  return {
+    runsWithTokenData,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    byModel: [...byModel.values()].sort((left, right) => right.totalTokens - left.totalTokens)
   };
 }
 

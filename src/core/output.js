@@ -290,8 +290,21 @@ function formatCostReportOutput(value) {
     `- Rolled back runs: ${report.rolledBackRuns ?? 0}`,
     `- Indexed files: ${report.indexedFiles ?? 0}`,
     `- Total edges: ${report.totalEdges ?? 0}`,
-    `- Token estimates: ${report.tokenEstimates ?? "unknown"}`
+    ...formatTokenUsage(report.tokenUsage)
   ].join("\n");
+}
+
+function formatTokenUsage(tokenUsage) {
+  if (!tokenUsage || !tokenUsage.runsWithTokenData) {
+    return ["- Token usage: none recorded yet"];
+  }
+  const lines = [
+    `- Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.inputTokens} in / ${tokenUsage.outputTokens} out) across ${tokenUsage.runsWithTokenData} run(s)`
+  ];
+  for (const entry of tokenUsage.byModel || []) {
+    lines.push(`  - ${entry.provider}/${entry.model}: ${entry.totalTokens} tokens over ${entry.runs} run(s)`);
+  }
+  return lines;
 }
 
 function formatEvalRetrievalOutput(value) {

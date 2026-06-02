@@ -282,16 +282,17 @@ only on network + `408/409/429/5xx`, [execution-retry.js](../src/core/execution-
 [openai.js:129-132](../src/adapters/openai.js)).
 
 ### Gap
-- `cost report` does **not** aggregate the cost data that already exists: `getCostReport`
-  ([store.js:262-328](../src/core/store.js)) emits `tokenEstimates: "Model token tracking is not wired
-  yet in v0 scaffold."` even though per-run tokens are already recorded. No token sum, no per-model
-  rollup, no $-cost.
+- ~~`cost report` does not aggregate the token data that already exists~~ — **CLOSED (roadmap #7).**
+  `getCostReport` ([store.js](../src/core/store.js)) now returns a `tokenUsage` block (total in/out/total
+  tokens, run count, and a per-provider/model breakdown sorted by usage) computed from the per-run
+  `metrics_json`; the human formatter prints it. The `"not wired yet"` placeholder is gone.
 - `classifyTask`/`modelRecommendation` ([planner.js:1-26](../src/core/planner.js)) is substring
-  matching and `modelRecommendation` is computed but never read by exec/fix.
+  matching and `modelRecommendation` is computed but never read by exec/fix — left as-is on purpose:
+  routing is an atlas-os responsibility (Deferred); the kernel now *exposes* both cost and
+  classification for the operator layer to act on.
 
 ### Work to close
-Wire token/cost aggregation into `cost report` (#7). Leave routing to atlas-os (Deferred); the kernel
-exposes the signals, the operator layer decides.
+Done (#7). Routing stays with atlas-os; the kernel exposes the signals.
 
 ### Prior-doc status
 Cost-aggregation gap: **new**. Routing: *reframed as atlas-os work.*
@@ -312,7 +313,7 @@ repo-derived signals serves the north star *and* unblocks Gate 1's generalizatio
 | 4 | **Full-suite miss-rate harness** | 1 (safety) | Quantifies the depth-2 recall cliff and the trust level of `confirm`. | A run mode runs the full suite alongside the selected subset; the ledger surfaces a rolling miss-rate. |
 | 5 | **Document + version the public contracts** | 2 | The operator layer must build against a stable, versioned surface. | `CONTRACTS.md` documents every `--json` + artifact shape; each payload carries `schemaVersion`; the `execution-builder` duplication is resolved. |
 | 6 ✅ | **Symbol-aware context windowing** | 3 (usability) | Head-truncation can omit the target symbol. | **DONE** — `compressContent` now centers the excerpt on the matched symbol (or first query-token line), head-truncation only as fallback; verified on a >1400-char fixture where the symbol sits past the head. |
-| 7 | **Wire token/cost aggregation into `cost report`** | 5 | Per-run tokens already exist; surfacing them is what routing/budgeting consumes. | `cost report` sums real tokens (+ optional per-model cost) instead of the placeholder string. |
+| 7 ✅ | **Wire token/cost aggregation into `cost report`** | 5 | Per-run tokens already exist; surfacing them is what routing/budgeting consumes. | **DONE** — `cost report` now returns a `tokenUsage` block (total in/out/total + per-provider/model breakdown) from the recorded per-run metrics; placeholder removed; verified by test. |
 
 Sequencing: **#1 first** → **#2** (measures #1); **#3** supports #1 for non-JS/TS and pairs with #2.
 **#4–#7 in parallel** anytime.
