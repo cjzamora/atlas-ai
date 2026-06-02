@@ -93,6 +93,73 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
       status: "failed"
     });
     assert.equal(failedRuns[0].failureReason, "OPENAI_API_KEY is not set.");
+
+    const handoffRun = insertRun(runtime.paths.dbFile, {
+      command: "exec_handoff",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "codex",
+        model: "default",
+        executionMode: "handoff"
+      }
+    });
+    updateRun(runtime.paths.dbFile, handoffRun.id, {
+      status: "completed",
+      output: {
+        command: "exec handoff",
+        task: "fix pricing fallback bug",
+        status: "prepared",
+        handoff: {
+          provider: "codex",
+          target: "Codex"
+        }
+      },
+      metrics: {}
+    });
+
+    const importRun = insertRun(runtime.paths.dbFile, {
+      command: "exec_import",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "claude",
+        model: "default",
+        executionMode: "import"
+      }
+    });
+    updateRun(runtime.paths.dbFile, importRun.id, {
+      status: "completed",
+      output: {
+        command: "exec import",
+        task: "fix pricing fallback bug",
+        status: "staged",
+        artifactId: "patch-imported",
+        artifact: {
+          id: "patch-imported",
+          importSource: {
+            type: "file",
+            path: "/tmp/claude-response.txt"
+          }
+        }
+      },
+      metrics: {}
+    });
+
+    const handoffRuns = listRuns(runtime.paths.dbFile, {
+      limit: 10,
+      command: "exec_handoff",
+      status: "completed"
+    });
+    assert.equal(handoffRuns[0].executionMode, "handoff");
+    assert.equal(handoffRuns[0].target, "Codex");
+
+    const importRuns = listRuns(runtime.paths.dbFile, {
+      limit: 10,
+      command: "exec_import",
+      status: "completed"
+    });
+    assert.equal(importRuns[0].executionMode, "import");
+    assert.equal(importRuns[0].artifactId, "patch-imported");
+    assert.equal(importRuns[0].importSourcePath, "/tmp/claude-response.txt");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

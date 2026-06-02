@@ -508,6 +508,9 @@ function summarizeRun(row) {
   const output = parseJson(row.outputJson);
   const metrics = parseJson(row.metricsJson);
   const changedFiles = output?.apply?.changedFiles || output?.changedFiles || [];
+  const artifactId = output?.artifactId || output?.artifact?.id || null;
+  const handoff = output?.handoff || null;
+  const importSource = output?.artifact?.importSource || metadata.importSource || null;
 
   return {
     id: row.id,
@@ -522,6 +525,11 @@ function summarizeRun(row) {
     memoryOutcome: output?.status || null,
     provider: metadata.provider || null,
     model: metadata.model || null,
+    executionMode: metadata.executionMode || null,
+    artifactId,
+    target: handoff?.target || null,
+    importSourceType: importSource?.type || null,
+    importSourcePath: importSource?.path || null,
     selectedTests: Number(metrics.selectedTests || 0),
     totalTokens: Number(metrics.totalTokens || 0),
     changedFiles,

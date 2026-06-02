@@ -234,6 +234,12 @@ function formatRunsOutput(value) {
   for (const run of value.runs) {
     lines.push(`- #${run.id} ${run.command} ${run.status}/${run.outcome} ${run.task || run.input}`);
     lines.push(`  provider=${run.provider || "unknown"} model=${run.model || "unknown"} tokens=${run.totalTokens ?? 0} tests=${run.selectedTests ?? 0}`);
+    if (run.executionMode || run.target || run.artifactId) {
+      lines.push(`  mode=${run.executionMode || "unknown"}${run.target ? ` target=${run.target}` : ""}${run.artifactId ? ` artifact=${run.artifactId}` : ""}`);
+    }
+    if (run.importSourcePath) {
+      lines.push(`  import=${run.importSourcePath}`);
+    }
     if (run.changedFiles?.length) {
       lines.push(`  changed=${run.changedFiles.join(", ")}`);
     }

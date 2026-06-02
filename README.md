@@ -130,6 +130,7 @@ Implemented:
 - live OpenAI execution request/response logging
 - manual handoff adapters for Codex and Claude Code built on the same normalized execution request
 - external execution result ingestion that stages Codex or Claude responses directly into patch artifacts
+- run history summaries that expose handoff targets, imported artifacts, and import sources for manual adapter workflows
 - review-only patch staging artifacts under `.atlas/artifacts`
 - staged patch validation execution with artifact-backed result persistence
 - validated unified-diff application for staged artifacts
