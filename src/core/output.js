@@ -163,6 +163,9 @@ function formatFixOutput(value) {
     lines.push(`Apply: ${value.apply.status || "unknown"}`);
     lines.push("", "Changed files:", ...formatLines(value.apply.changedFiles));
   }
+  if (value.rollback) {
+    lines.push(`Rollback: ${value.rollback.status || "unknown"}`);
+  }
 
   if (!value.ok && value.stage?.error?.message) {
     lines.push("", `Error: ${value.stage.error.message}`);

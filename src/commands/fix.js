@@ -49,6 +49,26 @@ export async function fixCommand({ args, flags }) {
     flags: { ...flags, confirm: true }
   });
 
+  if (apply.status === "apply_failed_validation" && flags.rollbackOnFail) {
+    const rollback = await patchCommand({
+      args: ["rollback", stage.artifactId],
+      flags
+    });
+
+    return {
+      ok: false,
+      command: "fix",
+      task,
+      artifactId: stage.artifactId,
+      status: "rolled_back",
+      stage,
+      validation,
+      apply,
+      rollback,
+      artifact: rollback.artifact || null
+    };
+  }
+
   return {
     ok: apply.ok,
     command: "fix",
@@ -58,6 +78,7 @@ export async function fixCommand({ args, flags }) {
     stage,
     validation,
     apply,
+    rollback: null,
     artifact: apply.artifact || null
   };
 }

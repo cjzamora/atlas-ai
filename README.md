@@ -50,6 +50,7 @@ node src/cli.js prompt "fix expired coupons still applying at checkout" --root p
 node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js fix "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js fix "fix expired coupons still applying at checkout" --rollback-on-fail --root playgrounds/react-nest-demo
 node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js patch show patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js test run --artifact patch-<id> --root playgrounds/react-nest-demo
@@ -124,6 +125,7 @@ Implemented:
 - rollback support using pre-apply file snapshots
 - optional `patch apply --confirm` convenience path that preserves the same artifact states
 - thin `fix` orchestration that composes stage, validate, and apply/confirm
+- optional `fix --rollback-on-fail` path for automatic recovery after failed post-apply confirmation
 
 Not implemented yet:
 

@@ -69,7 +69,7 @@ function usage() {
     "  atlas prompt \"<task>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas exec prepare \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas exec run \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
-    "  atlas fix \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
+    "  atlas fix \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--rollback-on-fail] [--json]",
     "  atlas patch stage \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas patch show <artifact-id> [--root <path>] [--json]",
     "  atlas patch apply <artifact-id> [--root <path>] [--confirm] [--json]",

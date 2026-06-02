@@ -277,6 +277,10 @@ async function applyPatch({ args, flags }) {
     return output;
   }
 
+  if (typeof globalThis.__atlasPatchConfirmHook === "function") {
+    await globalThis.__atlasPatchConfirmHook();
+  }
+
   const confirmed = await confirmPatch({
     args: [artifactId],
     flags
