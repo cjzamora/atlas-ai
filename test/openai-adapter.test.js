@@ -6,7 +6,9 @@ test("openai adapter reports missing api key clearly", async () => {
   const result = await executeOpenAIRequest({
     request: {
       model: "codex",
-      prompt: "hello"
+      input: {
+        promptText: "hello"
+      }
     },
     apiKey: ""
   });
@@ -21,7 +23,9 @@ test("openai adapter can label missing api key errors for callers", async () => 
   const result = await executeOpenAIRequest({
     request: {
       model: "codex",
-      prompt: "hello"
+      input: {
+        promptText: "hello"
+      }
     },
     apiKey: "",
     commandLabel: "atlas patch stage"
@@ -35,7 +39,9 @@ test("openai adapter normalizes a successful responses api payload", async () =>
   const result = await executeOpenAIRequest({
     request: {
       model: "codex",
-      prompt: "hello"
+      input: {
+        promptText: "hello"
+      }
     },
     apiKey: "test-key",
     fetchImpl: async () => ({
@@ -56,7 +62,7 @@ test("openai adapter normalizes a successful responses api payload", async () =>
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.response.responseId, "resp_123");
-  assert.equal(result.response.outputText, "Proposed fix");
+  assert.equal(result.response.id, "resp_123");
+  assert.equal(result.response.text, "Proposed fix");
   assert.equal(result.usage.totalTokens, 150);
 });

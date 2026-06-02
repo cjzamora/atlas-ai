@@ -41,6 +41,23 @@
  * @property {string[]} risks
  * @property {string[]} openQuestions
  * @property {boolean} codexNeeded
+ *
+ * @typedef {Object} ExecutionRequest
+ * @property {string} requestId
+ * @property {string} provider
+ * @property {string} model
+ * @property {string} task
+ * @property {string} taskType
+ * @property {string} risk
+ * @property {{promptText: string}} input
+ * @property {{contextBudget: string, selectedTests: string[], memoryHints: Array<Record<string, unknown>>, memoryAssistance: Record<string, unknown>, files: Array<{path: string, role: string, symbol: string | null}>}} context
+ *
+ * @typedef {Object} ExecutionResponse
+ * @property {string | null} id
+ * @property {string} provider
+ * @property {string | null} status
+ * @property {string | null} finishReason
+ * @property {string} text
  */
 
 export const atlasContracts = {};

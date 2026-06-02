@@ -50,9 +50,9 @@ test("execution builder packages a model-ready request artifact", async () => {
     assert.equal(request.provider, "openai");
     assert.equal(request.model, "codex");
     assert.ok(request.requestId);
-    assert.ok(request.selectedTests.includes("test/services/pricing.test.js"));
-    assert.ok(request.files.some((file) => file.path === "src/services/pricing.js"));
-    assert.match(request.prompt, /Atlas Execution Prompt/);
+    assert.ok(request.context.selectedTests.includes("test/services/pricing.test.js"));
+    assert.ok(request.context.files.some((file) => file.path === "src/services/pricing.js"));
+    assert.match(request.input.promptText, /Atlas Execution Prompt/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -121,10 +121,10 @@ test("execution builder carries advisory memory hints into the request artifact"
       model: "gpt-5.4"
     });
 
-    assert.equal(request.memoryHints.length, 1);
-    assert.equal(request.memoryHints[0].outcome, "confirmed");
-    assert.ok(request.memoryHints[0].files.includes("src/services/pricing.js"));
-    assert.ok(request.memoryHints[0].tests.includes("test/services/pricing.test.js"));
+    assert.equal(request.context.memoryHints.length, 1);
+    assert.equal(request.context.memoryHints[0].outcome, "confirmed");
+    assert.ok(request.context.memoryHints[0].files.includes("src/services/pricing.js"));
+    assert.ok(request.context.memoryHints[0].tests.includes("test/services/pricing.test.js"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

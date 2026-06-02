@@ -291,7 +291,7 @@ function formatExecOutput(value) {
     ...formatLines((request.files || []).map((file) => `${file.path} [${file.role}]`)),
     "",
     "Prompt preview:",
-    (request.prompt || "").slice(0, 600) + ((request.prompt || "").length > 600 ? "\n..." : "")
+    (request.input?.promptText || request.prompt || "").slice(0, 600) + (((request.input?.promptText || request.prompt || "").length > 600) ? "\n..." : "")
   ];
   return lines.join("\n");
 }
@@ -322,7 +322,7 @@ function formatExecRunOutput(value) {
       `- Total tokens: ${usage.totalTokens ?? "unknown"}`,
       "",
       "Response preview:",
-      (response.outputText || "").slice(0, 800) + ((response.outputText || "").length > 800 ? "\n..." : "")
+      (response.text || response.outputText || "").slice(0, 800) + (((response.text || response.outputText || "").length > 800) ? "\n..." : "")
     );
   }
 

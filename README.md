@@ -141,6 +141,19 @@ Implemented:
 - run summaries and patch artifacts record when prior memory influenced Atlas behavior
 - memory learning dedupes repeated outcomes and prefers higher-confidence confirmed patterns over contradictory failures
 
+Execution adapter contract in v0:
+
+- `exec prepare` builds a provider-agnostic request artifact with:
+  - `input.promptText` for the model-ready prompt
+  - `context` for bounded execution context such as files, selected tests, and advisory memory hints
+- adapters return a normalized response shape with:
+  - `response.id`
+  - `response.provider`
+  - `response.status`
+  - `response.finishReason`
+  - `response.text`
+- provider-specific wire details stay inside the adapter implementation
+
 Not implemented yet:
 
 - retry loops

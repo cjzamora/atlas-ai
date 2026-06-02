@@ -90,7 +90,7 @@ export function buildPatchArtifact({
   provider,
   model
 }) {
-  const rawOutput = response?.outputText || "";
+  const rawOutput = response?.text || response?.outputText || "";
   const parsed = parsePatchResponse(rawOutput);
   const id = createPatchId({ task, rawOutput, requestId: request?.requestId });
 
@@ -102,7 +102,7 @@ export function buildPatchArtifact({
     provider,
     model,
     requestId: request?.requestId || null,
-    responseId: response?.responseId || null,
+    responseId: response?.id || response?.responseId || null,
     status: "staged",
     createdAt: new Date().toISOString(),
     parseStatus: parsed.parseStatus,

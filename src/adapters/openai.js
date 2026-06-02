@@ -33,7 +33,7 @@ export async function executeOpenAIRequest({
 
   const body = {
     model: request.model,
-    input: request.prompt
+    input: request.input?.promptText || request.prompt || ""
   };
 
   const startedAt = Date.now();
@@ -66,13 +66,13 @@ export async function executeOpenAIRequest({
 
     const normalized = normalizeOpenAIResponse(responseBody);
     return {
-      ok: normalized.outputText.trim().length > 0,
-      status: normalized.outputText.trim().length > 0 ? "completed" : "failed",
+      ok: normalized.text.trim().length > 0,
+      status: normalized.text.trim().length > 0 ? "completed" : "failed",
       latencyMs,
       response: normalized,
       usage: normalizeUsage(responseBody?.usage),
       raw: responseBody,
-      error: normalized.outputText.trim().length > 0
+      error: normalized.text.trim().length > 0
         ? undefined
         : {
             code: "empty_response",
@@ -93,11 +93,13 @@ export async function executeOpenAIRequest({
 }
 
 function normalizeOpenAIResponse(response) {
-  const outputText = collectOutputText(response);
+  const text = collectOutputText(response);
   return {
-    responseId: response?.id || null,
+    provider: "openai",
+    id: response?.id || null,
+    status: response?.status || null,
     finishReason: response?.status || null,
-    outputText
+    text
   };
 }
 

@@ -23,9 +23,11 @@ test("adapter registry dispatches to registered adapters", async () => {
     ok: true,
     status: "completed",
     response: {
-      responseId: "resp_test",
+      id: "resp_test",
+      provider: "test-provider",
+      status: "completed",
       finishReason: "completed",
-      outputText: `handled:${request.prompt}`
+      text: `handled:${request.input.promptText}`
     },
     usage: {
       inputTokens: 1,
@@ -38,13 +40,15 @@ test("adapter registry dispatches to registered adapters", async () => {
     provider: "test-provider",
     request: {
       model: "fake",
-      prompt: "hello"
+      input: {
+        promptText: "hello"
+      }
     },
     commandLabel: "atlas exec run"
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.status, "completed");
-  assert.equal(result.response.responseId, "resp_test");
-  assert.equal(result.response.outputText, "handled:hello");
+  assert.equal(result.response.id, "resp_test");
+  assert.equal(result.response.text, "handled:hello");
 });
