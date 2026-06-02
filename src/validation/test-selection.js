@@ -1,8 +1,10 @@
 import { querySql } from "../core/sqlite.js";
+import { findRelevantRunPatterns } from "../core/store.js";
 
 export function selectImpactedTests(dbFile, query, limit = 10) {
   const safeLimit = Math.max(1, Number(limit || 10));
   const tokens = tokenize(query);
+  const memoryBoosts = buildMemoryBoosts(findRelevantRunPatterns(dbFile, query, 3));
 
   const evidenceRows = querySql(
     dbFile,
@@ -70,7 +72,7 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
   const tests = [...testScores.values()]
     .map((entry) => ({
       path: entry.path,
-      score: entry.score,
+      score: entry.score + (memoryBoosts.tests.get(entry.path) || 0),
       covers: [...entry.covers]
     }))
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
@@ -153,4 +155,21 @@ function tokenize(query) {
 
 function escapeSql(value) {
   return String(value).replace(/'/g, "''");
+}
+
+function buildMemoryBoosts(patterns) {
+  const tests = new Map();
+
+  for (const pattern of patterns || []) {
+    if (pattern.outcome !== "confirmed") {
+      continue;
+    }
+    for (const testPath of pattern.tests || []) {
+      tests.set(testPath, Math.min(3, (tests.get(testPath) || 0) + 2));
+    }
+  }
+
+  return {
+    tests
+  };
 }

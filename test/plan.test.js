@@ -118,3 +118,53 @@ test("plan artifact includes prior confirmed fix patterns as advisory memory", a
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-memory-boost-"));
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const before = searchEvidence(runtime.paths.dbFile, "fix fallback regression", 5);
+    assert.equal(before.matches[0].path, "src/controllers/checkout-controller.js");
+
+    const priorRun = insertRun(runtime.paths.dbFile, {
+      command: "fix",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "openai",
+        model: "gpt-5.4"
+      }
+    });
+    updateRun(runtime.paths.dbFile, priorRun.id, {
+      status: "completed",
+      output: {
+        command: "fix",
+        task: "fix pricing fallback bug",
+        status: "confirmed",
+        apply: {
+          changedFiles: ["src/services/pricing.js"]
+        },
+        stage: {
+          request: {
+            selectedTests: ["test/services/pricing.test.js"]
+          }
+        }
+      },
+      metrics: {
+        totalTokens: 30,
+        selectedTests: 1,
+        changedFiles: 1
+      }
+    });
+
+    const after = searchEvidence(runtime.paths.dbFile, "fix fallback regression", 5);
+    assert.equal(after.matches[0].path, "src/services/pricing.js");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

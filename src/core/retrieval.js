@@ -1,4 +1,5 @@
 import { querySql } from "./sqlite.js";
+import { findRelevantRunPatterns } from "./store.js";
 
 export function searchEvidence(dbFile, query, limit) {
   const safeLimit = Number.isFinite(limit) ? limit : 5;
@@ -7,6 +8,7 @@ export function searchEvidence(dbFile, query, limit) {
     return { matches: [] };
   }
   const queryProfile = profileQuery(tokens);
+  const memoryBoosts = buildMemoryBoosts(findRelevantRunPatterns(dbFile, query, 3));
 
   const rows = querySql(
     dbFile,
@@ -32,7 +34,7 @@ export function searchEvidence(dbFile, query, limit) {
   );
 
   const matches = rows
-    .map((row) => scoreRow(row, tokens, queryProfile))
+    .map((row) => scoreRow(row, tokens, queryProfile, memoryBoosts))
     .filter((row) => row.score > 0)
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
     .slice(0, Math.max(1, safeLimit));
@@ -42,7 +44,7 @@ export function searchEvidence(dbFile, query, limit) {
   };
 }
 
-function scoreRow(row, tokens, queryProfile) {
+function scoreRow(row, tokens, queryProfile, memoryBoosts) {
   const haystack = {
     path: String(row.path || "").toLowerCase(),
     summary: String(row.summary || "").toLowerCase(),
@@ -137,6 +139,8 @@ function scoreRow(row, tokens, queryProfile) {
     }
   }
 
+  score += memoryBoosts.files.get(row.path) || 0;
+
   return {
     path: row.path,
     language: row.language,
@@ -167,5 +171,22 @@ function profileQuery(tokens) {
   const prefersSourceFiles = tokens.some((token) => ["fix", "bug", "issue", "regression", "fallback"].includes(token));
   return {
     prefersSourceFiles
+  };
+}
+
+function buildMemoryBoosts(patterns) {
+  const files = new Map();
+
+  for (const pattern of patterns || []) {
+    if (pattern.outcome !== "confirmed") {
+      continue;
+    }
+    for (const filePath of pattern.files || []) {
+      files.set(filePath, Math.min(3, (files.get(filePath) || 0) + 2));
+    }
+  }
+
+  return {
+    files
   };
 }
