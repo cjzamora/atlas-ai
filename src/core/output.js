@@ -27,6 +27,10 @@ function formatHuman(value) {
     return formatPromptOutput(value);
   }
 
+  if (value.command === "fix") {
+    return formatFixOutput(value);
+  }
+
   if (value.command === "exec prepare") {
     return formatExecOutput(value);
   }
@@ -140,6 +144,31 @@ function formatContextOutput(value) {
 
 function formatPromptOutput(value) {
   return value.prompt || "";
+}
+
+function formatFixOutput(value) {
+  const lines = [
+    `Task: ${value.task}`,
+    `Status: ${value.status || "unknown"}`,
+    `Artifact: ${value.artifactId || value.artifact?.id || "unknown"}`
+  ];
+
+  if (value.stage) {
+    lines.push(`Stage: ${value.stage.status || "unknown"}`);
+  }
+  if (value.validation) {
+    lines.push(`Validation: ${value.validation.status || "unknown"}`);
+  }
+  if (value.apply) {
+    lines.push(`Apply: ${value.apply.status || "unknown"}`);
+    lines.push("", "Changed files:", ...formatLines(value.apply.changedFiles));
+  }
+
+  if (!value.ok && value.stage?.error?.message) {
+    lines.push("", `Error: ${value.stage.error.message}`);
+  }
+
+  return lines.join("\n");
 }
 
 function formatExecOutput(value) {
