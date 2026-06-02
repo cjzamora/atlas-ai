@@ -18,8 +18,8 @@
         ],
         "topMatches": [
           "src/event-bus.js",
-          "test/event-bus.test.js",
           "src/event-logger.js",
+          "test/event-bus.test.js",
           "src/subscription.js",
           "test/subscription.test.js"
         ],
@@ -110,8 +110,8 @@
         ],
         "topMatches": [
           "src/cache-store.js",
-          "test/cache-store.test.js",
           "src/throttle.js",
+          "test/cache-store.test.js",
           "test/throttle.test.js",
           "package.json"
         ],
@@ -268,8 +268,8 @@
         ],
         "topMatches": [
           "src/subscription.js",
-          "test/subscription.test.js",
-          "src/event-bus.js"
+          "src/event-bus.js",
+          "test/subscription.test.js"
         ],
         "hit": true,
         "rank": 1
@@ -360,9 +360,9 @@
         "topMatches": [
           "src/event-logger.js",
           "src/event-bus.js",
-          "test/event-bus.test.js",
           "src/subscription.js",
-          "src/throttle.js"
+          "src/throttle.js",
+          "test/event-bus.test.js"
         ],
         "hit": true,
         "rank": 1

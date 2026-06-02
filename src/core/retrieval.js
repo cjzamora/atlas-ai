@@ -21,9 +21,12 @@ const WEIGHTS = {
   testNeighborToken: 4,
   centralityMax: 10,
   centralityScale: 4,
-  // evidence retrieval surfaces implementation; tests are surfaced separately, so
-  // apply a small structural (not domain) de-prioritisation to test files.
-  nonTestEvidenceBias: -3
+  // evidence retrieval surfaces implementation; tests are surfaced separately
+  // (impacted-test selection). De-prioritise test files PROPORTIONALLY so a test
+  // ranks below an equally-matching source, while a strongly-matching test can
+  // still surface. A factor scales with match strength and carries no domain or
+  // absolute-magnitude tuning.
+  testEvidenceFactor: 0.5
 };
 
 export function searchEvidence(dbFile, query, limit) {
@@ -195,7 +198,7 @@ function scoreRow(row, tokens, idf, memoryBoosts) {
     score += Math.min(WEIGHTS.centralityMax, Math.log2(1 + fanIn) * WEIGHTS.centralityScale);
 
     if (isTestPath(haystack.path)) {
-      score += WEIGHTS.nonTestEvidenceBias;
+      score *= WEIGHTS.testEvidenceFactor;
     }
   }
 
