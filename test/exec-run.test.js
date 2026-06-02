@@ -48,6 +48,69 @@ test("exec run returns a logged failure when OPENAI_API_KEY is missing", async (
   }
 });
 
+test("exec run retries transient provider failures and succeeds on a later attempt", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-exec-run-retry-"));
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    process.env.OPENAI_API_KEY = "test-key";
+    let attempts = 0;
+    globalThis.fetch = async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("temporary network failure");
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "resp_exec_retry",
+          status: "completed",
+          output_text: "Proposed fix",
+          usage: {
+            input_tokens: 10,
+            output_tokens: 20,
+            total_tokens: 30
+          }
+        })
+      };
+    };
+
+    const result = await execCommand({
+      args: ["run", "fix pricing coupon discount bug"],
+      flags: { root: workingRoot, provider: "openai", model: "gpt-5.4" }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "completed");
+    assert.equal(result.response.text, "Proposed fix");
+    assert.equal(result.retry.attemptCount, 2);
+    assert.equal(result.retry.retried, true);
+    assert.equal(attempts, 2);
+
+    const runs = listRuns(runtime.paths.dbFile, 5);
+    assert.equal(runs[0].command, "exec_run");
+    assert.equal(runs[0].status, "completed");
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
+    globalThis.fetch = previousFetch;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("exec handoff builds a logged manual Codex handoff artifact", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-exec-handoff-"));
 

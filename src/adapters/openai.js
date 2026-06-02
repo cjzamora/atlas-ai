@@ -15,7 +15,8 @@ export async function executeOpenAIRequest({
       status: "failed",
       error: {
         code: "missing_api_key",
-        message: `OPENAI_API_KEY is required for \`${commandLabel}\`.`
+        message: `OPENAI_API_KEY is required for \`${commandLabel}\`.`,
+        retryable: false
       }
     };
   }
@@ -26,7 +27,8 @@ export async function executeOpenAIRequest({
       status: "failed",
       error: {
         code: "missing_fetch",
-        message: "No fetch implementation is available for OpenAI execution."
+        message: "No fetch implementation is available for OpenAI execution.",
+        retryable: false
       }
     };
   }
@@ -58,7 +60,8 @@ export async function executeOpenAIRequest({
         latencyMs,
         error: {
           code: responseBody?.error?.code || `http_${response.status}`,
-          message: responseBody?.error?.message || `OpenAI request failed with status ${response.status}.`
+          message: responseBody?.error?.message || `OpenAI request failed with status ${response.status}.`,
+          retryable: isRetryableStatus(response.status)
         },
         raw: responseBody
       };
@@ -73,11 +76,12 @@ export async function executeOpenAIRequest({
       usage: normalizeUsage(responseBody?.usage),
       raw: responseBody,
       error: normalized.text.trim().length > 0
-        ? undefined
-        : {
-            code: "empty_response",
-            message: "OpenAI returned no text output."
-          }
+          ? undefined
+          : {
+              code: "empty_response",
+              message: "OpenAI returned no text output.",
+              retryable: false
+            }
     };
   } catch (error) {
     return {
@@ -86,10 +90,16 @@ export async function executeOpenAIRequest({
       latencyMs: Date.now() - startedAt,
       error: {
         code: "network_error",
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
+        retryable: true
       }
     };
   }
+}
+
+function isRetryableStatus(status) {
+  const code = Number(status);
+  return code === 408 || code === 409 || code === 429 || code >= 500;
 }
 
 function normalizeOpenAIResponse(response) {

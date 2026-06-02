@@ -6,6 +6,7 @@ import { selectImpactedTests } from "../validation/test-selection.js";
 import { buildContextBundle } from "../core/context-builder.js";
 import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
+import { executeWithTransientRetries } from "../core/execution-retry.js";
 import { createRunLogger } from "../core/run-log.js";
 import { executeProviderRequest, buildProviderHandoff } from "../adapters/index.js";
 import "../adapters/openai.js";
@@ -203,11 +204,11 @@ export async function execCommand({ args, flags }) {
     }
   });
 
-  const result = await executeProviderRequest({
+  const result = await executeWithTransientRetries(() => executeProviderRequest({
     provider,
     request,
     apiKey: process.env.OPENAI_API_KEY
-  });
+  }));
 
   const output = {
     ok: result.ok,
@@ -216,6 +217,7 @@ export async function execCommand({ args, flags }) {
     request,
     response: result.response || null,
     usage: result.usage || null,
+    retry: result.retry || null,
     status: result.status,
     error: result.error
   };
@@ -228,6 +230,8 @@ export async function execCommand({ args, flags }) {
       model,
       requestId: request.requestId,
       latencyMs: result.latencyMs ?? null,
+      attemptCount: result.retry?.attemptCount ?? 1,
+      retryCount: Math.max(0, Number(result.retry?.attemptCount || 1) - 1),
       selectedTests: request.selectedTests.length,
       inputTokens: result.usage?.inputTokens ?? null,
       outputTokens: result.usage?.outputTokens ?? null,

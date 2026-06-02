@@ -17,7 +17,8 @@ export async function executeProviderRequest({ provider, request, commandLabel, 
       status: "failed",
       error: {
         code: "unsupported_provider",
-        message: `Provider "${provider}" is not supported yet.`
+        message: `Provider "${provider}" is not supported yet.`,
+        retryable: false
       }
     };
   }
@@ -38,7 +39,8 @@ export async function buildProviderHandoff({ provider, request, commandLabel, ..
       status: "failed",
       error: {
         code: "unsupported_provider",
-        message: `Provider "${provider}" does not have a handoff adapter yet.`
+        message: `Provider "${provider}" does not have a handoff adapter yet.`,
+        retryable: false
       }
     };
   }

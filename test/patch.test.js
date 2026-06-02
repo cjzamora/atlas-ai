@@ -208,6 +208,82 @@ test("patch stage persists matched memory hints and assistance metadata on the a
   }
 });
 
+test("patch stage retries transient provider failures and succeeds on a later attempt", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-stage-retry-"));
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    process.env.OPENAI_API_KEY = "test-key";
+    let attempts = 0;
+    globalThis.fetch = async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return {
+          ok: false,
+          status: 429,
+          json: async () => ({
+            error: {
+              code: "rate_limit_exceeded",
+              message: "try again"
+            }
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "resp_patch_retry",
+          status: "completed",
+          output_text: [
+            "```diff",
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,3 +1,3 @@",
+            "-const total = subtotal - discount;",
+            "+const total = Math.max(0, subtotal - discount);",
+            "```"
+          ].join("\n"),
+          usage: {
+            input_tokens: 10,
+            output_tokens: 20,
+            total_tokens: 30
+          }
+        })
+      };
+    };
+
+    const staged = await patchCommand({
+      args: ["stage", "fix pricing discount underflow"],
+      flags: { root: workingRoot, provider: "openai", model: "gpt-5.4", limit: 5 }
+    });
+
+    assert.equal(staged.ok, true);
+    assert.equal(staged.status, "staged");
+    assert.equal(staged.retry.attemptCount, 2);
+    assert.equal(staged.retry.retried, true);
+    assert.equal(attempts, 2);
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
+    globalThis.fetch = previousFetch;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("patch apply writes validated unified diffs to disk and marks the artifact as applied", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-apply-"));
 

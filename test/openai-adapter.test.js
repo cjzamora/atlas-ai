@@ -66,3 +66,50 @@ test("openai adapter normalizes a successful responses api payload", async () =>
   assert.equal(result.response.text, "Proposed fix");
   assert.equal(result.usage.totalTokens, 150);
 });
+
+test("openai adapter marks transient transport failures as retryable", async () => {
+  const result = await executeOpenAIRequest({
+    request: {
+      model: "gpt-5.4",
+      input: {
+        promptText: "hello"
+      }
+    },
+    apiKey: "test-key",
+    fetchImpl: async () => {
+      throw new Error("socket hang up");
+    }
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "network_error");
+  assert.equal(result.error.retryable, true);
+});
+
+test("openai adapter keeps client errors non-retryable", async () => {
+  const result = await executeOpenAIRequest({
+    request: {
+      model: "gpt-5.4",
+      input: {
+        promptText: "hello"
+      }
+    },
+    apiKey: "test-key",
+    fetchImpl: async () => ({
+      ok: false,
+      status: 400,
+      async json() {
+        return {
+          error: {
+            code: "bad_request",
+            message: "invalid request"
+          }
+        };
+      }
+    })
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "bad_request");
+  assert.equal(result.error.retryable, false);
+});

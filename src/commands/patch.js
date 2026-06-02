@@ -5,6 +5,7 @@ import { selectImpactedTests } from "../validation/test-selection.js";
 import { buildContextBundle } from "../core/context-builder.js";
 import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
+import { executeWithTransientRetries } from "../core/execution-retry.js";
 import { createRunLogger } from "../core/run-log.js";
 import { executeProviderRequest } from "../adapters/index.js";
 import "../adapters/openai.js";
@@ -68,12 +69,12 @@ async function stagePatch({ args, flags }) {
     }
   });
 
-  const result = await executeProviderRequest({
+  const result = await executeWithTransientRetries(() => executeProviderRequest({
     provider,
     request,
     apiKey: process.env.OPENAI_API_KEY,
     commandLabel: "atlas patch stage"
-  });
+  }));
 
   if (!result.ok) {
     const failure = {
@@ -85,6 +86,7 @@ async function stagePatch({ args, flags }) {
       artifactId: null,
       artifact: null,
       usage: result.usage || null,
+      retry: result.retry || null,
       error: result.error
     };
     logger.finishRun(run.id, {
@@ -95,6 +97,8 @@ async function stagePatch({ args, flags }) {
         model,
         requestId: request.requestId,
         latencyMs: result.latencyMs ?? null,
+        attemptCount: result.retry?.attemptCount ?? 1,
+        retryCount: Math.max(0, Number(result.retry?.attemptCount || 1) - 1),
         selectedTests: request.selectedTests.length,
         inputTokens: result.usage?.inputTokens ?? null,
         outputTokens: result.usage?.outputTokens ?? null,
@@ -124,6 +128,7 @@ async function stagePatch({ args, flags }) {
     artifactPath,
     artifact,
     usage: result.usage || null,
+    retry: result.retry || null,
     error: null
   };
 
@@ -135,6 +140,8 @@ async function stagePatch({ args, flags }) {
       model,
       requestId: request.requestId,
       latencyMs: result.latencyMs ?? null,
+      attemptCount: result.retry?.attemptCount ?? 1,
+      retryCount: Math.max(0, Number(result.retry?.attemptCount || 1) - 1),
       selectedTests: request.selectedTests.length,
       stagedPatches: artifact.patches.length,
       inputTokens: result.usage?.inputTokens ?? null,

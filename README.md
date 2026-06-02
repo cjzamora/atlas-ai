@@ -183,6 +183,7 @@ Implemented:
 - bounded retrieval and impacted-test ranking boosts from prior confirmed fix history
 - run summaries and patch artifacts record when prior memory influenced Atlas behavior
 - memory learning dedupes repeated outcomes and prefers higher-confidence confirmed patterns over contradictory failures
+- transient provider/runtime retries for `exec run` and `patch stage`, limited to network, rate-limit, timeout, and 5xx-style failures
 
 Execution adapter contract in v0:
 
@@ -202,14 +203,13 @@ Execution adapter contract in v0:
 
 Not implemented yet:
 
-- retry loops
 - semantic embeddings
 - team/shared memory
 
 These are intentionally deferred beyond v0:
 
-- `retry loops`
-  Best added in early v1, after Atlas autonomy and failure-policy boundaries are defined more clearly.
+- `semantic or validation-aware retry loops`
+  Atlas now retries only transient provider/runtime failures. Semantic retries for malformed output, validation failures, or re-planning remain deferred until stricter autonomy boundaries are defined.
 - `semantic embeddings`
   Best added only if retrieval quality becomes a real bottleneck on larger repos.
 - `team/shared memory`
@@ -219,9 +219,8 @@ These are intentionally deferred beyond v0:
 
 Recommended order after v0:
 
-1. Retry loops with explicit safety boundaries
-2. Semantic retrieval if larger-repo quality demands it
-3. Shared/team memory and broader orchestration
+1. Semantic retrieval if larger-repo quality demands it
+2. Shared/team memory and broader orchestration
 
 ## Release Status
 

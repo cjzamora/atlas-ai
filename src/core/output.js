@@ -314,12 +314,14 @@ function formatExecRunOutput(value) {
   const request = value.request || {};
   const response = value.response || {};
   const usage = value.usage || {};
+  const retry = value.retry || {};
   const lines = [
     `Task: ${value.task}`,
     `Provider: ${request.provider || "unknown"}`,
     `Model: ${request.model || "unknown"}`,
     `Request ID: ${request.requestId || "unknown"}`,
     `Status: ${value.status || "unknown"}`,
+    `Attempts: ${retry.attemptCount || 1}`,
     "",
     "Selected tests:",
     ...formatLines(request.selectedTests),
@@ -405,12 +407,14 @@ function formatExecImportOutput(value) {
 function formatPatchStageOutput(value) {
   const artifact = value.artifact || {};
   const request = value.request || {};
+  const retry = value.retry || {};
   const lines = [
     `Task: ${value.task}`,
     `Provider: ${request.provider || "unknown"}`,
     `Model: ${request.model || "unknown"}`,
     `Request ID: ${request.requestId || "unknown"}`,
     `Status: ${value.status || "unknown"}`,
+    `Attempts: ${retry.attemptCount || 1}`,
     `Artifact: ${value.artifactId || "none"}`,
     `Review only: ${artifact.reviewOnly === true ? "yes" : "unknown"}`,
     `Parse status: ${artifact.parseStatus || "unknown"}`,
