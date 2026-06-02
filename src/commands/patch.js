@@ -10,6 +10,7 @@ import { executeOpenAIRequest } from "../adapters/openai.js";
 import { buildPatchArtifact, readPatchArtifact, updatePatchArtifact, writePatchArtifact } from "../core/patch-artifact.js";
 import { applyPatchArtifactToRepo, rollbackPatchArtifact } from "../core/patch-apply.js";
 import { runSelectedTests } from "../validation/test-runner.js";
+import { resolveModelConfig } from "../core/model-config.js";
 
 const USAGE = 'Usage: atlas patch stage "<task>"\n       atlas patch show <artifact-id>\n       atlas patch apply <artifact-id>\n       atlas patch confirm <artifact-id>\n       atlas patch rollback <artifact-id>';
 
@@ -41,8 +42,7 @@ async function stagePatch({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 6);
-  const provider = String(flags.provider || "openai");
-  const model = String(flags.model || "codex");
+  const { provider, model } = resolveModelConfig(flags);
   const request = await buildPatchRequest({
     runtime,
     task,

@@ -37,6 +37,8 @@ It is intentionally local-first and dependency-light.
 
 All commands support `--root <path>` and most support `--json`.
 
+OpenAI-backed commands default to `provider: openai` and `model: gpt-5.4` unless you override them with `--provider` or `--model`.
+
 ## Local Usage
 
 From the project root:

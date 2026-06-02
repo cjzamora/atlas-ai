@@ -7,6 +7,7 @@ import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
 import { createRunLogger } from "../core/run-log.js";
 import { executeOpenAIRequest } from "../adapters/openai.js";
+import { resolveModelConfig } from "../core/model-config.js";
 
 export async function execCommand({ args, flags }) {
   const subcommand = args[0];
@@ -21,8 +22,7 @@ export async function execCommand({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 6);
-  const provider = String(flags.provider || "openai");
-  const model = String(flags.model || "codex");
+  const { provider, model } = resolveModelConfig(flags);
   const classification = classifyTask(task);
   const evidence = searchEvidence(runtime.paths.dbFile, task, limit);
   const impacted = classification.requiresTests

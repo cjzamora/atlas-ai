@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-export function buildExecutionRequest({ task, classification, bundle, prompt, provider = "openai", model = "codex" }) {
+export function buildExecutionRequest({ task, classification, bundle, prompt, provider = "openai", model = "gpt-5.4" }) {
   return {
     requestId: crypto.createHash("sha1").update(`${task}:${prompt}`).digest("hex").slice(0, 12),
     provider,

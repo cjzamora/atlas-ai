@@ -2,6 +2,7 @@ import { patchCommand } from "./patch.js";
 import { testCommand } from "./test.js";
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { createRunLogger } from "../core/run-log.js";
+import { resolveModelConfig } from "../core/model-config.js";
 
 export async function fixCommand({ args, flags }) {
   const task = args.join(" ").trim();
@@ -11,12 +12,13 @@ export async function fixCommand({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const logger = createRunLogger(runtime.paths.dbFile);
+  const { provider, model } = resolveModelConfig(flags);
   const run = logger.startRun({
     command: "fix",
     input: task,
     metadata: {
-      provider: flags.provider || "openai",
-      model: flags.model || "codex",
+      provider,
+      model,
       rollbackOnFail: Boolean(flags.rollbackOnFail)
     }
   });
