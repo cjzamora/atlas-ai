@@ -71,6 +71,7 @@ node src/cli.js runs --command fix --status completed --root playgrounds/react-n
 node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json --report /tmp/retrieval-report.json --fail-under 0.8
+node src/cli.js eval retrieval --root playgrounds/commerce-app --spec evals/retrieval/commerce-app.spec.json --report archive/commerce-app-retrieval-report.json --fail-under 1
 ```
 
 ## Manual Codex / Claude Round-Trip
@@ -126,6 +127,19 @@ It includes:
 - shared contracts
 - test files linked to the graph
 
+### `playgrounds/commerce-app`
+
+Atlas-owned commerce SaaS fixture for committed kernel calibration.
+
+It includes:
+
+- auth and API-key guard modules
+- checkout, discount validation, catalog, and orders modules
+- shared webhook delivery and retry queue modules
+- provider-specific Stripe Connect and Stripe webhook modules
+- ledger mapper, service, and Inngest-style sync modules
+- direct and neighboring tests for retrieval and impacted-test ranking
+
 ## Testing
 
 Run the automated test suite:
@@ -178,6 +192,16 @@ Run it with:
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 ```
 
+Run the committed Atlas-owned commerce baseline with:
+
+```bash
+node src/cli.js eval retrieval \
+  --root playgrounds/commerce-app \
+  --spec evals/retrieval/commerce-app.spec.json \
+  --report archive/commerce-app-retrieval-report.json \
+  --fail-under 1
+```
+
 Optional quality gate:
 
 ```bash
@@ -193,6 +217,7 @@ This reports:
 - evidence hit rate
 - impacted-test hit rate
 - average match rank
+- JSON diagnostics for impacted-test ranking and memory assistance
 - per-query misses that can justify future semantic retrieval work
 - optional pass/fail thresholding for real-repo baselines
 

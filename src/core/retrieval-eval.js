@@ -13,7 +13,9 @@ export async function loadRetrievalEvalSpec(specFile) {
       id: entry.id || `case-${index + 1}`,
       query: String(entry.query || "").trim(),
       expectedEvidence: normalizePathList(entry.expectedEvidence),
-      expectedTests: normalizePathList(entry.expectedTests)
+      expectedTests: normalizePathList(entry.expectedTests),
+      maxEvidenceRank: normalizeOptionalPositiveInteger(entry.maxEvidenceRank),
+      maxTestRank: normalizeOptionalPositiveInteger(entry.maxTestRank)
     })).filter((entry) => entry.query.length > 0)
   };
 }
@@ -28,6 +30,7 @@ export function evaluateRetrievalSpec(dbFile, spec) {
 
   const evidenceHits = results.filter((entry) => entry.evidence.hit).length;
   const testHits = results.filter((entry) => entry.tests.hit).length;
+  const qualityFailures = results.filter((entry) => !entry.quality.passed).length;
 
   return {
     cases: results,
@@ -37,7 +40,9 @@ export function evaluateRetrievalSpec(dbFile, spec) {
       evidenceHitRate: rate(evidenceHits, results.length),
       testHitRate: rate(testHits, results.length),
       evidenceAverageRank: averageRank(results.map((entry) => entry.evidence.rank)),
-      testAverageRank: averageRank(results.map((entry) => entry.tests.rank))
+      testAverageRank: averageRank(results.map((entry) => entry.tests.rank)),
+      rankQualityFailureCount: qualityFailures,
+      rankQualityPassed: qualityFailures === 0
     }
   };
 }
@@ -47,12 +52,81 @@ function evaluateCase(dbFile, entry, limit) {
   const impacted = selectImpactedTests(dbFile, entry.query, limit);
   const topEvidence = evidence.matches.map((match) => match.path);
   const topTests = impacted.tests.map((match) => match.path);
+  const evidenceResult = evaluateExpectedPaths(entry.expectedEvidence, topEvidence);
+  const testResult = evaluateExpectedPaths(entry.expectedTests, topTests);
 
   return {
     id: entry.id,
     query: entry.query,
-    evidence: evaluateExpectedPaths(entry.expectedEvidence, topEvidence),
-    tests: evaluateExpectedPaths(entry.expectedTests, topTests)
+    evidence: evidenceResult,
+    tests: {
+      ...testResult,
+      diagnostics: {
+        topMatches: impacted.tests.map((match) => ({
+          path: match.path,
+          score: match.score,
+          covers: match.covers || [],
+          coverDetails: match.coverDetails || [],
+          scoreBreakdown: match.scoreBreakdown || {}
+        }))
+      }
+    },
+    memoryAssistance: summarizeCaseMemoryAssistance(evidence, impacted, topEvidence, topTests),
+    quality: evaluateQuality(entry, evidenceResult, testResult)
+  };
+}
+
+function summarizeCaseMemoryAssistance(evidence, impacted, topEvidence, topTests) {
+  const evidenceMemory = evidence.memoryAssistance || {};
+  const testMemory = impacted.memoryAssistance || {};
+  const boostedPaths = evidenceMemory.boostedPaths || [];
+  const boostedTests = testMemory.boostedTests || [];
+  const ignoredOutcomes = [
+    ...(evidenceMemory.ignoredOutcomes || []),
+    ...(testMemory.ignoredOutcomes || [])
+  ];
+
+  return {
+    matchedPatternCount: Math.max(
+      Number(evidenceMemory.matchedPatternCount || 0),
+      Number(testMemory.matchedPatternCount || 0)
+    ),
+    ignoredPatternCount: Math.max(
+      Number(evidenceMemory.ignoredPatternCount || 0),
+      Number(testMemory.ignoredPatternCount || 0)
+    ),
+    ignoredOutcomes: [...new Set(ignoredOutcomes)],
+    retrievalBoostApplied: Boolean(evidenceMemory.retrievalBoostApplied),
+    testBoostApplied: Boolean(testMemory.testBoostApplied),
+    boostedPaths,
+    boostedTests,
+    topEvidenceMemoryBoosted: boostedPaths.includes(topEvidence[0]),
+    topTestMemoryBoosted: boostedTests.includes(topTests[0])
+  };
+}
+
+function evaluateQuality(entry, evidence, tests) {
+  const failures = [];
+
+  if (Number.isFinite(entry.maxEvidenceRank) && (!Number.isFinite(evidence.rank) || evidence.rank > entry.maxEvidenceRank)) {
+    failures.push({
+      type: "maxEvidenceRank",
+      expected: entry.maxEvidenceRank,
+      actual: evidence.rank
+    });
+  }
+
+  if (Number.isFinite(entry.maxTestRank) && (!Number.isFinite(tests.rank) || tests.rank > entry.maxTestRank)) {
+    failures.push({
+      type: "maxTestRank",
+      expected: entry.maxTestRank,
+      actual: tests.rank
+    });
+  }
+
+  return {
+    passed: failures.length === 0,
+    failures
   };
 }
 
@@ -93,6 +167,17 @@ function normalizePathList(paths) {
   return Array.isArray(paths)
     ? paths.map((entry) => String(entry || "").trim()).filter(Boolean)
     : [];
+}
+
+function normalizeOptionalPositiveInteger(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.max(0, Math.floor(parsed));
 }
 
 function rate(numerator, denominator) {

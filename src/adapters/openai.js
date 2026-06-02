@@ -13,11 +13,11 @@ export async function executeOpenAIRequest({
     return {
       ok: false,
       status: "failed",
-      error: {
+      error: normalizeOpenAIError({
         code: "missing_api_key",
         message: `OPENAI_API_KEY is required for \`${commandLabel}\`.`,
         retryable: false
-      }
+      })
     };
   }
 
@@ -25,11 +25,11 @@ export async function executeOpenAIRequest({
     return {
       ok: false,
       status: "failed",
-      error: {
+      error: normalizeOpenAIError({
         code: "missing_fetch",
         message: "No fetch implementation is available for OpenAI execution.",
         retryable: false
-      }
+      })
     };
   }
 
@@ -58,43 +58,72 @@ export async function executeOpenAIRequest({
         ok: false,
         status: "failed",
         latencyMs,
-        error: {
+        error: normalizeOpenAIError({
           code: responseBody?.error?.code || `http_${response.status}`,
           message: responseBody?.error?.message || `OpenAI request failed with status ${response.status}.`,
-          retryable: isRetryableStatus(response.status)
-        },
+          retryable: isRetryableStatus(response.status),
+          status: response.status
+        }),
+        raw: responseBody
+      };
+    }
+
+    if (!responseBody || typeof responseBody !== "object") {
+      return {
+        ok: false,
+        status: "failed",
+        latencyMs,
+        error: normalizeOpenAIError({
+          code: "malformed_provider_response",
+          message: "OpenAI returned a malformed response payload.",
+          retryable: false,
+          status: response.status
+        }),
         raw: responseBody
       };
     }
 
     const normalized = normalizeOpenAIResponse(responseBody);
+    const hasText = normalized.text.trim().length > 0;
     return {
-      ok: normalized.text.trim().length > 0,
-      status: normalized.text.trim().length > 0 ? "completed" : "failed",
+      ok: hasText,
+      status: hasText ? "completed" : "failed",
       latencyMs,
       response: normalized,
       usage: normalizeUsage(responseBody?.usage),
       raw: responseBody,
-      error: normalized.text.trim().length > 0
+      error: hasText
           ? undefined
-          : {
+          : normalizeOpenAIError({
               code: "empty_response",
               message: "OpenAI returned no text output.",
-              retryable: false
-            }
+              retryable: false,
+              status: response.status
+            })
     };
   } catch (error) {
     return {
       ok: false,
       status: "failed",
       latencyMs: Date.now() - startedAt,
-      error: {
+      error: normalizeOpenAIError({
         code: "network_error",
         message: error instanceof Error ? error.message : String(error),
         retryable: true
-      }
+      })
     };
   }
+}
+
+function normalizeOpenAIError({ code, message, retryable, status = null }) {
+  const numericStatus = status === null || status === undefined || status === "" ? null : Number(status);
+  return {
+    provider: "openai",
+    code: String(code || "provider_error"),
+    message: String(message || "OpenAI provider request failed."),
+    retryable: Boolean(retryable),
+    status: Number.isFinite(numericStatus) ? numericStatus : null
+  };
 }
 
 function isRetryableStatus(status) {

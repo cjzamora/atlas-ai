@@ -1,0 +1,98 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "auth-api-key-guard",
+      "query": "api key auth current app guard service",
+      "expectedEvidence": [
+        "api/src/modules/auth/app-auth.service.ts",
+        "api/src/modules/auth/app-auth.guard.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/auth/__tests__/app-auth.service.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    },
+    {
+      "id": "checkout-payment-intent",
+      "query": "checkout payment intent cart subtotal discount service",
+      "expectedEvidence": [
+        "api/src/modules/checkout/checkout.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/checkout/__tests__/checkout.service.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    },
+    {
+      "id": "discount-validation",
+      "query": "discount validation code country cart subtotal",
+      "expectedEvidence": [
+        "api/src/modules/checkout/discount.validation.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/checkout/__tests__/discount.validation.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    },
+    {
+      "id": "stripe-connect-vs-model-resolver",
+      "query": "stripe connect connected account onboarding login link charges",
+      "expectedEvidence": [
+        "api/src/modules/providers/stripe/stripe-connect.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/providers/stripe/__tests__/stripe-connect.resolver.spec.ts",
+        "api/src/modules/providers/stripe/__tests__/stripe-connect.service.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    },
+    {
+      "id": "stripe-webhook-vs-shared-webhooks",
+      "query": "stripe webhook signature inbound provider event queue",
+      "expectedEvidence": [
+        "api/src/modules/providers/stripe/stripe-webhook.controller.ts",
+        "api/src/modules/providers/stripe/stripe-webhook.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/providers/stripe/__tests__/stripe-webhook.service.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    },
+    {
+      "id": "shared-webhook-delivery-retry",
+      "query": "webhook delivery retry queue provider event processing",
+      "expectedEvidence": [
+        "api/src/modules/webhooks/webhooks.service.ts",
+        "api/src/modules/webhooks/webhook-queue.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/webhooks/__tests__/webhooks.service.spec.ts",
+        "api/src/modules/webhooks/__tests__/webhook-queue.service.spec.ts"
+      ],
+      "maxEvidenceRank": 2,
+      "maxTestRank": 2
+    },
+    {
+      "id": "ledger-mapping-sync",
+      "query": "ledger mapper sync inngest order fulfillment",
+      "expectedEvidence": [
+        "api/src/modules/providers/ledger/ledger.mapper.ts",
+        "api/src/modules/providers/ledger/ledger.service.ts",
+        "api/src/modules/providers/ledger/ledger.inngest.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/providers/ledger/__tests__/ledger.mapper.spec.ts",
+        "api/src/modules/providers/ledger/__tests__/ledger.service.spec.ts",
+        "api/src/modules/providers/ledger/__tests__/ledger.inngest.spec.ts"
+      ],
+      "maxEvidenceRank": 1,
+      "maxTestRank": 1
+    }
+  ]
+}

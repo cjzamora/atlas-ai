@@ -43,6 +43,8 @@ export function searchEvidence(dbFile, query, limit) {
     matches,
     memoryAssistance: {
       matchedPatternCount: memoryBoosts.matchedPatternCount,
+      ignoredPatternCount: memoryBoosts.ignoredPatternCount,
+      ignoredOutcomes: memoryBoosts.ignoredOutcomes,
       retrievalBoostApplied: memoryBoosts.files.size > 0,
       boostedPaths: [...memoryBoosts.files.keys()]
     }
@@ -145,6 +147,7 @@ function scoreRow(row, tokens, queryProfile, memoryBoosts) {
   }
 
   score += scoreImplementationRole(haystack.path, queryProfile);
+  score += scoreModuleAnchor(haystack.path, queryProfile);
 
   score += memoryBoosts.files.get(row.path) || 0;
 
@@ -185,62 +188,226 @@ function profileQuery(tokens) {
   const prefersMapperFiles = tokens.some((token) =>
     ["mapper", "mapping", "map", "sync", "transform"].includes(token)
   );
+  const prefersQueueFiles = tokens.some((token) =>
+    ["queue", "retry", "delivery", "enqueue"].includes(token)
+  );
+  const prefersInngestFiles = tokens.some((token) =>
+    ["inngest", "worker", "job", "trigger"].includes(token)
+  );
+  const prefersGuardFiles = tokens.some((token) =>
+    ["guard", "auth", "authorize", "permission"].includes(token)
+  );
+  const prefersControllerFiles = tokens.some((token) =>
+    ["controller", "signature", "hmac", "raw", "received"].includes(token)
+  );
   return {
     prefersSourceFiles,
     prefersServiceFiles,
     prefersValidationFiles,
-    prefersMapperFiles
+    prefersMapperFiles,
+    prefersQueueFiles,
+    prefersInngestFiles,
+    prefersGuardFiles,
+    prefersControllerFiles,
+    anchorTokens: entityAnchorTokens(tokens)
   };
 }
 
 function scoreImplementationRole(pathValue, queryProfile) {
   let score = 0;
+  const isServiceFile = pathValue.endsWith(".service.ts") || pathValue.endsWith(".service.js");
+  const isResolverFile = pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js");
+  const isControllerFile = pathValue.endsWith(".controller.ts") || pathValue.endsWith(".controller.js");
+  const isModelFile = pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js");
+  const isValidationFile = pathValue.endsWith(".validation.ts") || pathValue.endsWith(".validation.js");
+  const isMapperFile = pathValue.endsWith(".mapper.ts") || pathValue.endsWith(".mapper.js");
+  const isQueueFile = /queue\.service\.(ts|js)$/.test(pathValue);
+  const isInngestFile = pathValue.endsWith(".inngest.ts") || pathValue.endsWith(".inngest.js");
+  const isGuardFile = pathValue.endsWith(".guard.ts") || pathValue.endsWith(".guard.js");
+  const isDashboardWrapper = /(^|\/)dashboard-/.test(pathValue);
 
   if (queryProfile.prefersServiceFiles) {
-    if (pathValue.endsWith(".service.ts") || pathValue.endsWith(".service.js")) {
-      score += 10;
+    if (isServiceFile) {
+      score += 30;
     }
-    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
-      score -= 4;
+    if (isResolverFile) {
+      score -= 35;
     }
-    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
-      score -= 3;
+    if (isModelFile) {
+      score -= 75;
     }
   }
 
   if (queryProfile.prefersValidationFiles) {
-    if (pathValue.endsWith(".validation.ts") || pathValue.endsWith(".validation.js")) {
+    if (isValidationFile) {
       score += 12;
     }
-    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
+    if (isResolverFile) {
       score -= 4;
     }
-    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
+    if (isModelFile) {
       score -= 3;
     }
   }
 
   if (queryProfile.prefersMapperFiles) {
-    if (pathValue.endsWith(".mapper.ts") || pathValue.endsWith(".mapper.js")) {
-      score += 10;
+    if (isMapperFile) {
+      score += 30;
     }
-    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
+    if (isResolverFile) {
+      score -= 4;
+    }
+    if (isModelFile) {
       score -= 3;
     }
-    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
+    if (isServiceFile) {
       score -= 2;
+    }
+  }
+
+  if (queryProfile.prefersQueueFiles) {
+    if (isQueueFile) {
+      score += 16;
+    } else if (isServiceFile) {
+      score += 4;
+    }
+    if (isResolverFile) {
+      score -= 4;
+    }
+  }
+
+  if (queryProfile.prefersControllerFiles) {
+    if (isControllerFile) {
+      score += 70;
+    }
+    if (isResolverFile) {
+      score -= 20;
+    }
+    if (isModelFile) {
+      score -= 40;
+    }
+  }
+
+  if (queryProfile.prefersInngestFiles) {
+    if (isInngestFile) {
+      score += 12;
+    }
+    if (isResolverFile) {
+      score -= 3;
+    }
+  }
+
+  if (queryProfile.prefersGuardFiles) {
+    if (isGuardFile) {
+      score += 10;
+    } else if (isServiceFile) {
+      score += 4;
+    }
+    if (isResolverFile) {
+      score -= 3;
+    }
+  }
+
+  if (
+    queryProfile.prefersServiceFiles ||
+    queryProfile.prefersValidationFiles ||
+    queryProfile.prefersMapperFiles ||
+    queryProfile.prefersQueueFiles ||
+    queryProfile.prefersInngestFiles ||
+    queryProfile.prefersGuardFiles ||
+    queryProfile.prefersControllerFiles
+  ) {
+    if (isDashboardWrapper) {
+      score -= 5;
     }
   }
 
   return score;
 }
 
+function scoreModuleAnchor(pathValue, queryProfile) {
+  const anchors = queryProfile.anchorTokens || [];
+  if (anchors.length === 0) {
+    return 0;
+  }
+
+  const matchedAnchors = anchors.filter((token) => pathValue.includes(token));
+  if (matchedAnchors.length > 0) {
+    return matchedAnchors.length * 18;
+  }
+
+  return -18;
+}
+
+function entityAnchorTokens(tokens) {
+  const roleTokens = new Set([
+    "service",
+    "payments",
+    "payment",
+    "checkout",
+    "charges",
+    "charge",
+    "validation",
+    "validate",
+    "validator",
+    "account",
+    "number",
+    "country",
+    "mapper",
+    "mapping",
+    "map",
+    "sync",
+    "transform",
+    "queue",
+    "retry",
+    "delivery",
+    "enqueue",
+    "inngest",
+    "worker",
+    "job",
+    "trigger",
+    "guard",
+    "auth",
+    "authorize",
+    "permission",
+    "controller",
+    "signature",
+    "hmac",
+    "raw",
+    "received",
+    "webhook",
+    "inbound",
+    "event",
+    "provider",
+    "tenant",
+    "connected",
+    "onboarding",
+    "login",
+    "link",
+    "list",
+    "current",
+    "key",
+    "api",
+    "fix",
+    "bug",
+    "issue",
+    "regression",
+    "fallback"
+  ]);
+
+  return tokens.filter((token) => !roleTokens.has(token));
+}
+
 function buildMemoryBoosts(patterns) {
   const files = new Map();
   let matchedPatternCount = 0;
+  let ignoredPatternCount = 0;
+  const ignoredOutcomes = new Set();
 
   for (const pattern of patterns || []) {
     if (pattern.outcome !== "confirmed") {
+      ignoredPatternCount += 1;
+      ignoredOutcomes.add(pattern.outcome || "unknown");
       continue;
     }
     matchedPatternCount += 1;
@@ -251,6 +418,8 @@ function buildMemoryBoosts(patterns) {
 
   return {
     files,
-    matchedPatternCount
+    matchedPatternCount,
+    ignoredPatternCount,
+    ignoredOutcomes: [...ignoredOutcomes]
   };
 }

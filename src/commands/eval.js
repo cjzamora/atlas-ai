@@ -62,11 +62,13 @@ export async function evalCommand({ args, flags }) {
 
 function buildThresholdResult(summary, failUnderValue) {
   const failUnder = Number(failUnderValue);
+  const rankQualityFailed = summary.rankQualityPassed === false;
   if (!Number.isFinite(failUnder)) {
     return {
-      failed: false,
+      failed: rankQualityFailed,
       minimumEvidenceHitRate: null,
-      minimumTestHitRate: null
+      minimumTestHitRate: null,
+      rankQualityFailed
     };
   }
 
@@ -75,8 +77,9 @@ function buildThresholdResult(summary, failUnderValue) {
   const testFailed = Number(summary.testHitRate || 0) < minimum;
 
   return {
-    failed: evidenceFailed || testFailed,
+    failed: evidenceFailed || testFailed || rankQualityFailed,
     minimumEvidenceHitRate: minimum,
-    minimumTestHitRate: minimum
+    minimumTestHitRate: minimum,
+    rankQualityFailed
   };
 }

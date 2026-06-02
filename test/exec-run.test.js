@@ -6,6 +6,7 @@ import os from "node:os";
 import { ensureAtlasRuntime } from "../src/core/runtime.js";
 import { scanRepository } from "../src/core/scanner.js";
 import { upsertFiles, listRuns } from "../src/core/store.js";
+import { querySql } from "../src/core/sqlite.js";
 import { execCommand } from "../src/commands/exec.js";
 import { readPatchArtifact } from "../src/core/patch-artifact.js";
 
@@ -100,6 +101,76 @@ test("exec run retries transient provider failures and succeeds on a later attem
     const runs = listRuns(runtime.paths.dbFile, 5);
     assert.equal(runs[0].command, "exec_run");
     assert.equal(runs[0].status, "completed");
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
+    globalThis.fetch = previousFetch;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("exec run records normalized retry exhaustion details for provider failures", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-exec-run-retry-exhausted-"));
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    process.env.OPENAI_API_KEY = "test-key";
+    let attempts = 0;
+    globalThis.fetch = async () => {
+      attempts += 1;
+      return {
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: {
+            message: "temporary provider outage"
+          }
+        })
+      };
+    };
+
+    const result = await execCommand({
+      args: ["run", "fix pricing coupon discount bug"],
+      flags: { root: workingRoot, provider: "openai", model: "gpt-5.4" }
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "failed");
+    assert.equal(result.error.code, "http_500");
+    assert.equal(result.error.provider, "openai");
+    assert.equal(result.error.status, 500);
+    assert.equal(result.error.retryable, true);
+    assert.equal(result.retry.attemptCount, 3);
+    assert.equal(result.retry.exhausted, true);
+    assert.equal(result.retry.attempts.length, 3);
+    assert.equal(result.retry.attempts[0].provider, "openai");
+    assert.equal(result.retry.attempts[0].statusCode, 500);
+    assert.equal(attempts, 3);
+
+    const [row] = querySql(
+      runtime.paths.dbFile,
+      "select output_json as outputJson, metrics_json as metricsJson from runs where command = 'exec_run' order by id desc limit 1;"
+    );
+    const output = JSON.parse(row.outputJson);
+    const metrics = JSON.parse(row.metricsJson);
+    assert.equal(output.error.code, "http_500");
+    assert.equal(output.error.provider, "openai");
+    assert.equal(output.retry.exhausted, true);
+    assert.equal(metrics.attemptCount, 3);
+    assert.equal(metrics.retryExhausted, true);
+    assert.equal(metrics.finalErrorCode, "http_500");
+    assert.equal(metrics.finalErrorRetryable, true);
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY;

@@ -11,7 +11,10 @@ export async function executeWithTransientRetries(executeAttempt, options = {}) 
       ok: Boolean(result?.ok),
       status: result?.status || "failed",
       retryable: Boolean(result?.error?.retryable),
-      errorCode: result?.error?.code || null
+      provider: result?.error?.provider || result?.response?.provider || null,
+      statusCode: result?.error?.status ?? null,
+      errorCode: result?.error?.code || null,
+      errorMessage: result?.error?.message || null
     });
 
     if (result?.ok || !result?.error?.retryable || attemptNumber === maxAttempts) {
