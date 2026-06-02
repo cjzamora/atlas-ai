@@ -1,6 +1,7 @@
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { selectImpactedTests } from "../validation/test-selection.js";
 import { runSelectedTests } from "../validation/test-runner.js";
+import { measureSelectionMissRate } from "../validation/miss-rate.js";
 import { createRunLogger } from "../core/run-log.js";
 import { readPatchArtifact, updatePatchArtifact } from "../core/patch-artifact.js";
 
@@ -12,8 +13,61 @@ export async function testCommand({ args, flags }) {
   if (subcommand === "run") {
     return runArtifactTests({ flags });
   }
+  if (subcommand === "missrate") {
+    return measureMissRate({ args: args.slice(1), flags });
+  }
 
-  throw new Error('Usage: atlas test impacted "<query>"\n       atlas test run --artifact <artifact-id>');
+  throw new Error('Usage: atlas test impacted "<query>"\n       atlas test run --artifact <artifact-id>\n       atlas test missrate "<query>"');
+}
+
+async function measureMissRate({ args, flags }) {
+  const query = args.join(" ").trim();
+  if (!query) {
+    throw new Error('Usage: atlas test missrate "<query>"');
+  }
+
+  const runtime = await ensureAtlasRuntime(flags.root);
+  const limit = Number(flags.limit || 10);
+  const logger = createRunLogger(runtime.paths.dbFile);
+  const run = logger.startRun({
+    command: "test_missrate",
+    input: query,
+    metadata: { validationMode: "missrate" }
+  });
+
+  const result = await measureSelectionMissRate({
+    rootDir: runtime.rootDir,
+    dbFile: runtime.paths.dbFile,
+    query,
+    limit
+  });
+
+  const output = {
+    ok: true,
+    command: "test missrate",
+    query,
+    selectedTests: result.selectedTests,
+    totalTestFiles: result.totalTestFiles,
+    failingTests: result.failingTests,
+    coveredFailures: result.coveredFailures,
+    missedFailures: result.missedFailures,
+    missRate: result.missRate,
+    fullSummary: result.fullSummary
+  };
+
+  logger.finishRun(run.id, {
+    status: "completed",
+    output,
+    metrics: {
+      missRate: result.missRate,
+      selectedTests: result.selectedTests.length,
+      failingTests: result.failingTests.length,
+      missedFailures: result.missedFailures.length,
+      totalTestFiles: result.totalTestFiles
+    }
+  });
+
+  return output;
 }
 
 async function impactedTests({ args, flags }) {

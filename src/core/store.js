@@ -315,6 +315,16 @@ export function getCostReport(dbFile) {
   );
   const tokenUsage = summarizeTokenUsage(tokenRows);
 
+  const missRateRows = querySql(
+    dbFile,
+    `
+      select metrics_json as metricsJson
+      from runs
+      where command = 'test_missrate' and metrics_json is not null and metrics_json <> '';
+    `
+  );
+  const selectionMissRate = summarizeMissRate(missRateRows);
+
   return {
     totalRuns: Number(runCounts.totalRuns || 0),
     indexRuns: Number(runCounts.indexRuns || 0),
@@ -333,7 +343,27 @@ export function getCostReport(dbFile) {
     validationFailedRuns: outcomeCounts.validationFailed,
     applyFailedValidationRuns: outcomeCounts.applyFailedValidation,
     rolledBackRuns: outcomeCounts.rolledBack,
-    tokenUsage
+    tokenUsage,
+    selectionMissRate
+  };
+}
+
+// Rolling impacted-test selection miss rate across recorded `test missrate` runs —
+// the confirm step's trust level (how often a real failure escapes selection).
+function summarizeMissRate(rows) {
+  const rates = [];
+  for (const row of rows) {
+    const metrics = parseJson(row.metricsJson);
+    if (typeof metrics.missRate === "number" && Number.isFinite(metrics.missRate)) {
+      rates.push(metrics.missRate);
+    }
+  }
+  if (rates.length === 0) {
+    return { samples: 0, averageMissRate: null };
+  }
+  return {
+    samples: rates.length,
+    averageMissRate: rates.reduce((sum, rate) => sum + rate, 0) / rates.length
   };
 }
 

@@ -153,10 +153,12 @@ last-resort fallback. Decide later whether to drop it too.
   service and validation files"` is direct evidence of tuning-to-fixture. **The harness therefore
   cannot distinguish a general ranker from a memorized one** — the v2 review's `[integrity]` finding,
   confirmed in code.
-- **No miss-rate vs. full suite.** `expandImpactedPaths` ([test-selection.js:141-175](../src/validation/test-selection.js))
-  bounds traversal at `distance >= 2`; files 3+ hops away are invisible to graph selection. A repo-wide
-  search confirms there is **no** mechanism running the full suite alongside the selected subset, so the
-  trust level of the `confirm` step ("rerun selected tests") is unquantified.
+- **Miss-rate vs. full suite — now measurable (roadmap #4 done).** `expandImpactedPaths`
+  ([test-selection.js](../src/validation/test-selection.js)) still bounds traversal at `distance >= 2`,
+  so files far away can be missed — but `atlas test missrate "<query>"`
+  ([miss-rate.js](../src/validation/miss-rate.js)) now runs the full (runnable JS/TS) suite alongside the
+  selected subset, reports which full-suite failures selection missed, and records the rate; `cost
+  report` surfaces a rolling `selectionMissRate` as the confirm-step trust level.
 
 ### Gap
 The eval measures memorization, not generalization, and `confirm`'s soundness is unmeasured. An
@@ -167,8 +169,8 @@ across codebases.
 - Make the **held-out real-repo eval the primary fitness function** (see roadmap #2). Once the
   conventions are removed (#1), the generalized ranker is scored on repos it was never tuned against,
   with misses categorized (lexical / structural / test-link / concept).
-- Add a **full-suite miss-rate harness** (#4) that quantifies how often selection misses a real
-  failure and surfaces a rolling miss-rate in the ledger.
+- ~~Add a **full-suite miss-rate harness** (#4)~~ — **DONE** (`atlas test missrate`); rolling miss-rate
+  in `cost report`. The held-out generalization eval (#2) remains the standing fitness function.
 
 ### Prior-doc status
 - Held-out eval: **covered but not done** ([30 Day Roadmap.md](30%20Day%20Roadmap.md) Wk1; v2 P0.1/P1.4).
@@ -312,7 +314,7 @@ repo-derived signals serves the north star *and* unblocks Gate 1's generalizatio
 | 1 ✅ | **Remove domain conventions; replace with repo-derived signals** | 4 (also unblocks 1) | The core of "general regardless of codebase": no baked-in vocab/suffix knowledge. | **DONE** — no domain vocab/suffix literals remain in `retrieval.js`/`test-selection.js`; ranking uses structural centrality + repo-corpus IDF; test↔source stem match the only flagged residual. |
 | 2 ✅ | **Held-out real-repo eval as the fitness function** | 1 (integrity) | A general ranker can only be proven on repos it was never tuned on. | **DONE** — 5 held-out repos (Python/Go/Ruby/Rust/flat-JS) under `playgrounds/holdout-*` + specs; all 1.00/1.00, commerce held at 1.00/1.00. Next: grow case count + categorize the tail-rank (test-over-source) misses. |
 | 3 ✅ | **Multi-language graph (dependency-light, not tree-sitter)** | 3 (language) | The graph is the main domain-free signal; it must work beyond JS/TS. | **DONE** — chose dependency-light per-language extractors over tree-sitter (no eval evidence yet justifying a WASM parser; preserves the dependency-light ethos). `scanner.js` now extracts symbols/imports/calls for Python, Ruby, Rust, Go; call edges resolve via the language-agnostic symbol index. Measured edges: Python 18 import/35 call, Go 34 call, Ruby 13/11, Rust 10/13. Held-out hit rate unchanged at 1.00/1.00; JS/TS unaffected. Upgrade to tree-sitter remains evidence-gated on a larger real repo. |
-| 4 | **Full-suite miss-rate harness** | 1 (safety) | Quantifies the depth-2 recall cliff and the trust level of `confirm`. | A run mode runs the full suite alongside the selected subset; the ledger surfaces a rolling miss-rate. |
+| 4 ✅ | **Full-suite miss-rate harness** | 1 (safety) | Quantifies the depth-2 recall cliff and the trust level of `confirm`. | **DONE** — `atlas test missrate "<query>"` runs the full runnable suite alongside the selected subset, reports missed failures, and records a rolling `selectionMissRate` in `cost report`. |
 | 5 ✅ | **Document + version the public contracts** | 2 | The operator layer must build against a stable, versioned surface. | **DONE** — `docs/CONTRACTS.md` documents the command/`--json`/artifact surface; `CONTRACT_VERSION` stamped as `schemaVersion` on the execution request + patch artifact; `execution-builder` duplication documented as intentional. |
 | 6 ✅ | **Symbol-aware context windowing** | 3 (usability) | Head-truncation can omit the target symbol. | **DONE** — `compressContent` now centers the excerpt on the matched symbol (or first query-token line), head-truncation only as fallback; verified on a >1400-char fixture where the symbol sits past the head. |
 | 7 ✅ | **Wire token/cost aggregation into `cost report`** | 5 | Per-run tokens already exist; surfacing them is what routing/budgeting consumes. | **DONE** — `cost report` now returns a `tokenUsage` block (total in/out/total + per-provider/model breakdown) from the recorded per-run metrics; placeholder removed; verified by test. |

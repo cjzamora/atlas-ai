@@ -83,6 +83,10 @@ function formatHuman(value) {
     return formatTestRunOutput(value);
   }
 
+  if (value.command === "test missrate") {
+    return formatMissRateOutput(value);
+  }
+
   if (value.command === "cost report") {
     return formatCostReportOutput(value);
   }
@@ -290,8 +294,33 @@ function formatCostReportOutput(value) {
     `- Rolled back runs: ${report.rolledBackRuns ?? 0}`,
     `- Indexed files: ${report.indexedFiles ?? 0}`,
     `- Total edges: ${report.totalEdges ?? 0}`,
-    ...formatTokenUsage(report.tokenUsage)
+    ...formatTokenUsage(report.tokenUsage),
+    ...formatSelectionMissRate(report.selectionMissRate)
   ].join("\n");
+}
+
+function formatSelectionMissRate(selectionMissRate) {
+  if (!selectionMissRate || !selectionMissRate.samples) {
+    return ["- Impacted-test miss rate: no samples yet (run `atlas test missrate`)"];
+  }
+  const pct = (selectionMissRate.averageMissRate * 100).toFixed(1);
+  return [`- Impacted-test miss rate (rolling): ${pct}% over ${selectionMissRate.samples} sample(s)`];
+}
+
+function formatMissRateOutput(value) {
+  const lines = [
+    `Impacted-test miss rate for "${value.query}":`,
+    `- Selected tests: ${value.selectedTests.length}`,
+    `- Test files in repo: ${value.totalTestFiles}`,
+    `- Failing in full suite: ${value.failingTests.length}`,
+    `- Covered by selection: ${value.coveredFailures.length}`,
+    `- Missed by selection: ${value.missedFailures.length}`,
+    `- Miss rate: ${(value.missRate * 100).toFixed(1)}%`
+  ];
+  for (const missed of value.missedFailures || []) {
+    lines.push(`  - missed failure: ${missed}`);
+  }
+  return lines.join("\n");
 }
 
 function formatTokenUsage(tokenUsage) {

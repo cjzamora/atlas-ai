@@ -34,6 +34,7 @@ It is intentionally local-first and dependency-light.
 - `atlas patch rollback <artifact-id>`
 - `atlas test impacted "<query>"`
 - `atlas test run --artifact <artifact-id>`
+- `atlas test missrate "<query>"`
 - `atlas runs`
 - `atlas memory search "<query>"`
 - `atlas cost report`

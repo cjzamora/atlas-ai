@@ -52,6 +52,7 @@ Errors are uniform: `{ "ok": false, "error": string }` (`src/cli.js`). Global fl
 | `patch rollback <id>` | artifact id | — | `status`, `changedFiles[]`, `artifact` |
 | `test impacted "<q>"` | query | `--limit` | `impactedFiles[]`, `tests[]` |
 | `test run` | — | `--artifact <id>` | `status`, `summary`, `results[]`, `artifact` |
+| `test missrate "<q>"` | query | `--limit` | `selectedTests[]`, `totalTestFiles`, `failingTests[]`, `coveredFailures[]`, `missedFailures[]`, `missRate` |
 | `runs` | — | `--command`, `--status`, `--limit` | `filters`, `count`, `runs[]` |
 | `memory search "<q>"` | query | `--limit` | `matches[]` |
 | `cost report` | — | — | `report` (see Observability) |
@@ -179,6 +180,13 @@ startedAt, finishedAt`.
   "inputTokens": number, "outputTokens": number, "totalTokens": number,
   "byModel": Array<{ provider, model, runs, inputTokens, outputTokens, totalTokens }>  // desc by totalTokens
 }
+```
+
+and a `selectionMissRate` block — the rolling trust level of the confirm step, fed by
+`atlas test missrate` runs:
+
+```
+"selectionMissRate": { "samples": number, "averageMissRate": number | null }
 ```
 
 Routing on these signals is an atlas-os responsibility; the kernel only exposes them.
