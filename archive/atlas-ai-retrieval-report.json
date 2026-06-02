@@ -1,0 +1,182 @@
+{
+  "ok": true,
+  "command": "eval retrieval",
+  "specFile": "evals/retrieval/atlas-ai.spec.json",
+  "threshold": {
+    "failed": false,
+    "minimumEvidenceHitRate": 0.75,
+    "minimumTestHitRate": 0.75
+  },
+  "cases": [
+    {
+      "id": "openai-retry",
+      "query": "openai adapter network retryable rate limit failure",
+      "evidence": {
+        "expected": [
+          "src/adapters/openai.js"
+        ],
+        "topMatches": [
+          "src/adapters/openai.js",
+          "test/openai-adapter.test.js",
+          "src/adapters/index.js",
+          "test/adapter-registry.test.js",
+          "src/commands/exec.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/openai-adapter.test.js"
+        ],
+        "topMatches": [
+          "test/execution.test.js",
+          "test/prompt.test.js",
+          "test/context.test.js",
+          "test/plan.test.js",
+          "test/openai-adapter.test.js"
+        ],
+        "hit": true,
+        "rank": 5
+      }
+    },
+    {
+      "id": "patch-lifecycle",
+      "query": "patch apply confirm rollback validated diff artifact",
+      "evidence": {
+        "expected": [
+          "src/commands/patch.js",
+          "src/core/patch-apply.js"
+        ],
+        "topMatches": [
+          "src/commands/patch.js",
+          "src/core/patch-artifact.js",
+          "src/core/patch-apply.js",
+          "test/patch.test.js",
+          "src/commands/test.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/patch.test.js"
+        ],
+        "topMatches": [
+          "test/patch.test.js",
+          "test/exec-run.test.js",
+          "test/validation-run.test.js",
+          "test/execution.test.js",
+          "test/prompt.test.js"
+        ],
+        "hit": true,
+        "rank": 1
+      }
+    },
+    {
+      "id": "fix-orchestration",
+      "query": "fix rollback on fail stage validate apply confirm metrics",
+      "evidence": {
+        "expected": [
+          "src/commands/fix.js"
+        ],
+        "topMatches": [
+          "src/commands/fix.js",
+          "src/commands/patch.js",
+          "src/core/patch-apply.js",
+          "test/fixtures/sample-repo/src/services/checkout.js",
+          "src/core/runtime.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/fix.test.js"
+        ],
+        "topMatches": [
+          "test/execution.test.js",
+          "test/prompt.test.js",
+          "test/fix.test.js",
+          "test/patch.test.js",
+          "test/context.test.js"
+        ],
+        "hit": true,
+        "rank": 3
+      }
+    },
+    {
+      "id": "retrieval-eval",
+      "query": "retrieval evaluation threshold report fail under spec",
+      "evidence": {
+        "expected": [
+          "src/commands/eval.js",
+          "src/core/retrieval-eval.js"
+        ],
+        "topMatches": [
+          "src/core/retrieval-eval.js",
+          "src/commands/eval.js",
+          "src/core/store.js",
+          "evals/retrieval/atlas-ai.spec.json",
+          "src/commands/cost-report.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/retrieval-eval.test.js"
+        ],
+        "topMatches": [
+          "test/execution.test.js",
+          "test/prompt.test.js",
+          "test/context.test.js",
+          "test/plan.test.js",
+          "test/retrieval-eval.test.js"
+        ],
+        "hit": true,
+        "rank": 5
+      }
+    },
+    {
+      "id": "typescript-scanner",
+      "query": "typescript ast scanner method calls imported services",
+      "evidence": {
+        "expected": [
+          "src/core/scanner.js"
+        ],
+        "topMatches": [
+          "src/core/scanner.js",
+          "test/scanner.test.js",
+          "test/fixtures/sample-repo/src/services/checkout.js",
+          "test/fixtures/sample-repo/src/services/pricing.js",
+          "test/fixtures/sample-repo/test/services/checkout.test.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/scanner.test.js"
+        ],
+        "topMatches": [
+          "test/execution.test.js",
+          "test/prompt.test.js",
+          "test/context.test.js",
+          "test/plan.test.js",
+          "test/exec-run.test.js"
+        ],
+        "hit": false,
+        "rank": null
+      }
+    }
+  ],
+  "summary": {
+    "caseCount": 5,
+    "limit": 5,
+    "evidenceHitRate": 1,
+    "testHitRate": 0.8,
+    "evidenceAverageRank": 1,
+    "testAverageRank": 3.5
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "openai-retry",
+      "query": "openai adapter network retryable rate limit failure",
+      "expectedEvidence": [
+        "src/adapters/openai.js"
+      ],
+      "expectedTests": [
+        "test/openai-adapter.test.js"
+      ]
+    },
+    {
+      "id": "patch-lifecycle",
+      "query": "patch apply confirm rollback validated diff artifact",
+      "expectedEvidence": [
+        "src/commands/patch.js",
+        "src/core/patch-apply.js"
+      ],
+      "expectedTests": [
+        "test/patch.test.js"
+      ]
+    },
+    {
+      "id": "fix-orchestration",
+      "query": "fix rollback on fail stage validate apply confirm metrics",
+      "expectedEvidence": [
+        "src/commands/fix.js"
+      ],
+      "expectedTests": [
+        "test/fix.test.js"
+      ]
+    },
+    {
+      "id": "retrieval-eval",
+      "query": "retrieval evaluation threshold report fail under spec",
+      "expectedEvidence": [
+        "src/commands/eval.js",
+        "src/core/retrieval-eval.js"
+      ],
+      "expectedTests": [
+        "test/retrieval-eval.test.js"
+      ]
+    },
+    {
+      "id": "typescript-scanner",
+      "query": "typescript ast scanner method calls imported services",
+      "expectedEvidence": [
+        "src/core/scanner.js"
+      ],
+      "expectedTests": [
+        "test/scanner.test.js"
+      ]
+    }
+  ]
+}

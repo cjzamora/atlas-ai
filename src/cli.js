@@ -15,6 +15,7 @@ import { costReportCommand } from "./commands/cost-report.js";
 import { testCommand } from "./commands/test.js";
 import { evalCommand } from "./commands/eval.js";
 import { formatOutput } from "./core/output.js";
+import { parseArgv } from "./core/argv.js";
 
 const commandHandlers = {
   init: initCommand,
@@ -32,31 +33,6 @@ const commandHandlers = {
   test: testCommand,
   eval: evalCommand
 };
-
-function parseArgv(argv) {
-  const positionals = [];
-  const flags = {};
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
-    if (!value.startsWith("--")) {
-      positionals.push(value);
-      continue;
-    }
-
-    const flag = value.slice(2);
-    const nextValue = argv[index + 1];
-    if (!nextValue || nextValue.startsWith("--")) {
-      flags[flag] = true;
-      continue;
-    }
-
-    flags[flag] = nextValue;
-    index += 1;
-  }
-
-  return { positionals, flags };
-}
 
 function usage() {
   return [
