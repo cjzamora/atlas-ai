@@ -1,6 +1,7 @@
 export function resolveModelConfig(flags = {}) {
+  const provider = String(flags.provider || "openai");
   return {
-    provider: String(flags.provider || "openai"),
-    model: String(flags.model || "gpt-5.4")
+    provider,
+    model: String(flags.model || (provider === "openai" ? "gpt-5.4" : "default"))
   };
 }

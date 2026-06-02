@@ -58,6 +58,17 @@
  * @property {string | null} status
  * @property {string | null} finishReason
  * @property {string} text
+ *
+ * @typedef {Object} ExecutionHandoff
+ * @property {string} provider
+ * @property {string} mode
+ * @property {string} target
+ * @property {string} targetModel
+ * @property {string} title
+ * @property {string[]} instructions
+ * @property {string} promptText
+ * @property {string[]} selectedTests
+ * @property {Array<{path: string, role: string, symbol: string | null}>} files
  */
 
 export const atlasContracts = {};

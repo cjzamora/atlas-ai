@@ -6,20 +6,22 @@ import { buildContextBundle } from "../core/context-builder.js";
 import { buildPromptFromBundle } from "../core/prompt-builder.js";
 import { buildExecutionRequest } from "../core/execution-builder.js";
 import { createRunLogger } from "../core/run-log.js";
-import { executeProviderRequest } from "../adapters/index.js";
+import { executeProviderRequest, buildProviderHandoff } from "../adapters/index.js";
 import "../adapters/openai.js";
+import "../adapters/codex.js";
+import "../adapters/claude.js";
 import { resolveModelConfig } from "../core/model-config.js";
 import { findRelevantRunPatterns } from "../core/store.js";
 
 export async function execCommand({ args, flags }) {
   const subcommand = args[0];
-  if (subcommand !== "prepare" && subcommand !== "run") {
-    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"');
+  if (subcommand !== "prepare" && subcommand !== "run" && subcommand !== "handoff") {
+    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"');
   }
 
   const task = args.slice(1).join(" ").trim();
   if (!task) {
-    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"');
+    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"');
   }
 
   const runtime = await ensureAtlasRuntime(flags.root);
@@ -67,6 +69,52 @@ export async function execCommand({ args, flags }) {
       task,
       request
     };
+  }
+
+  if (subcommand === "handoff") {
+    const logger = createRunLogger(runtime.paths.dbFile);
+    const run = logger.startRun({
+      command: "exec_handoff",
+      input: task,
+      metadata: {
+        provider,
+        model,
+        requestId: request.requestId,
+        selectedTests: request.selectedTests,
+        executionMode: "handoff",
+        memoryAssistance: request.memoryAssistance || null
+      }
+    });
+
+    const result = await buildProviderHandoff({
+      provider,
+      request,
+      commandLabel: "atlas exec handoff"
+    });
+
+    const output = {
+      ok: result.ok,
+      command: "exec handoff",
+      task,
+      request,
+      handoff: result.handoff || null,
+      status: result.status,
+      error: result.error
+    };
+
+    logger.finishRun(run.id, {
+      status: result.ok ? "completed" : "failed",
+      output,
+      metrics: {
+        provider,
+        model,
+        requestId: request.requestId,
+        selectedTests: request.selectedTests.length,
+        matchedPatternCount: request.memoryAssistance?.matchedPatternCount ?? 0
+      }
+    });
+
+    return output;
   }
 
   const logger = createRunLogger(runtime.paths.dbFile);

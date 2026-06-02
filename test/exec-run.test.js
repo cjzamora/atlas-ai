@@ -46,3 +46,36 @@ test("exec run returns a logged failure when OPENAI_API_KEY is missing", async (
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("exec handoff builds a logged manual Codex handoff artifact", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-exec-handoff-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const result = await execCommand({
+      args: ["handoff", "fix pricing coupon discount bug"],
+      flags: { root: workingRoot, provider: "codex" }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.command, "exec handoff");
+    assert.equal(result.status, "prepared");
+    assert.equal(result.handoff.provider, "codex");
+    assert.equal(result.handoff.mode, "manual");
+    assert.match(result.handoff.promptText, /Atlas Execution Prompt/);
+    assert.ok(Array.isArray(result.handoff.instructions));
+    assert.ok(result.handoff.instructions.length > 0);
+
+    const runs = listRuns(runtime.paths.dbFile, 5);
+    assert.equal(runs[0].command, "exec_handoff");
+    assert.equal(runs[0].status, "completed");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

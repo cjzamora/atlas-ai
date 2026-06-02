@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { executeProviderRequest, registerExecutionAdapter } from "../src/adapters/index.js";
+import {
+  executeProviderRequest,
+  registerExecutionAdapter,
+  registerHandoffAdapter,
+  buildProviderHandoff
+} from "../src/adapters/index.js";
 
 test("adapter registry rejects unsupported providers with a normalized failure", async () => {
   const result = await executeProviderRequest({
@@ -51,4 +56,33 @@ test("adapter registry dispatches to registered adapters", async () => {
   assert.equal(result.status, "completed");
   assert.equal(result.response.id, "resp_test");
   assert.equal(result.response.text, "handled:hello");
+});
+
+test("handoff adapter registry dispatches to registered handoff adapters", async () => {
+  registerHandoffAdapter("handoff-test-provider", async ({ request }) => ({
+    ok: true,
+    status: "prepared",
+    handoff: {
+      provider: "handoff-test-provider",
+      mode: "manual",
+      promptText: request.input.promptText,
+      instructions: ["paste into target tool"]
+    }
+  }));
+
+  const result = await buildProviderHandoff({
+    provider: "handoff-test-provider",
+    request: {
+      model: "fake",
+      input: {
+        promptText: "hello"
+      }
+    },
+    commandLabel: "atlas exec handoff"
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "prepared");
+  assert.equal(result.handoff.provider, "handoff-test-provider");
+  assert.equal(result.handoff.promptText, "hello");
 });

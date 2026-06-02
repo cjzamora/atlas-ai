@@ -24,6 +24,7 @@ It is intentionally local-first and dependency-light.
 - `atlas prompt "<task>"`
 - `atlas exec prepare "<task>"`
 - `atlas exec run "<task>"`
+- `atlas exec handoff "<task>"`
 - `atlas fix "<task>"`
 - `atlas patch stage "<task>"`
 - `atlas patch show <artifact-id>`
@@ -52,6 +53,7 @@ node src/cli.js context "fix expired coupons still applying at checkout" --root 
 node src/cli.js prompt "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
+node src/cli.js exec handoff "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex
 node src/cli.js fix "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js fix "fix expired coupons still applying at checkout" --rollback-on-fail --root playgrounds/react-nest-demo
 node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
@@ -124,6 +126,7 @@ Implemented:
 - model-ready prompt and execution request generation
 - provider-normalized execution adapter seam with OpenAI registered as the first adapter
 - live OpenAI execution request/response logging
+- manual handoff adapters for Codex and Claude Code built on the same normalized execution request
 - review-only patch staging artifacts under `.atlas/artifacts`
 - staged patch validation execution with artifact-backed result persistence
 - validated unified-diff application for staged artifacts
@@ -152,6 +155,7 @@ Execution adapter contract in v0:
   - `response.status`
   - `response.finishReason`
   - `response.text`
+- `exec handoff` builds provider-specific manual export artifacts for `codex` and `claude` without making live API calls
 - provider-specific wire details stay inside the adapter implementation
 
 Not implemented yet:

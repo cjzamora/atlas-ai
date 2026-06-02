@@ -47,6 +47,10 @@ function formatHuman(value) {
     return formatExecRunOutput(value);
   }
 
+  if (value.command === "exec handoff") {
+    return formatExecHandoffOutput(value);
+  }
+
   if (value.command === "patch stage") {
     return formatPatchStageOutput(value);
   }
@@ -324,6 +328,35 @@ function formatExecRunOutput(value) {
       "Response preview:",
       (response.text || response.outputText || "").slice(0, 800) + (((response.text || response.outputText || "").length > 800) ? "\n..." : "")
     );
+  }
+
+  return lines.join("\n");
+}
+
+function formatExecHandoffOutput(value) {
+  const request = value.request || {};
+  const handoff = value.handoff || {};
+  const lines = [
+    `Task: ${value.task}`,
+    `Provider: ${request.provider || handoff.provider || "unknown"}`,
+    `Model: ${request.model || handoff.targetModel || "unknown"}`,
+    `Request ID: ${request.requestId || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    `Target: ${handoff.target || "unknown"}`,
+    "",
+    "Selected tests:",
+    ...formatLines(handoff.selectedTests || request.selectedTests),
+    "",
+    "Instructions:",
+    ...formatLines(handoff.instructions),
+    "",
+    "Prompt preview:",
+    (handoff.promptText || request.input?.promptText || request.prompt || "").slice(0, 800)
+      + (((handoff.promptText || request.input?.promptText || request.prompt || "").length > 800) ? "\n..." : "")
+  ];
+
+  if (value.error) {
+    lines.push("", `Error: ${value.error.message}`);
   }
 
   return lines.join("\n");
