@@ -173,15 +173,37 @@ export function updateRun(dbFile, id, payload) {
 }
 
 export function listRuns(dbFile, limit) {
-  return querySql(
+  const options = normalizeRunListOptions(limit);
+  const whereClauses = [];
+  if (options.command) {
+    whereClauses.push(`command = '${escapeSql(options.command)}'`);
+  }
+  if (options.status) {
+    whereClauses.push(`status = '${escapeSql(options.status)}'`);
+  }
+  const where = whereClauses.length > 0 ? `where ${whereClauses.join(" and ")}` : "";
+
+  const rows = querySql(
     dbFile,
     `
-      select id, command, input, status, started_at as startedAt, finished_at as finishedAt
+      select
+        id,
+        command,
+        input,
+        status,
+        metadata_json as metadataJson,
+        output_json as outputJson,
+        metrics_json as metricsJson,
+        started_at as startedAt,
+        finished_at as finishedAt
       from runs
+      ${where}
       order by id desc
-      limit ${Math.max(1, Number(limit || 10))};
+      limit ${options.limit};
     `
   );
+
+  return rows.map((row) => summarizeRun(row));
 }
 
 export function searchMemory(dbFile, query, limit) {
@@ -195,7 +217,7 @@ export function searchMemory(dbFile, query, limit) {
   }
 
   const where = tokens
-    .map((token) => `lower(summary) like '%${escapeSql(token)}%'`)
+    .map((token) => `(lower(summary) like '%${escapeSql(token)}%' or lower(tags) like '%${escapeSql(token)}%')`)
     .join(" or ");
 
   return querySql(
@@ -207,7 +229,7 @@ export function searchMemory(dbFile, query, limit) {
       order by id desc
       limit ${Math.max(1, Number(limit || 5))};
     `
-  );
+  ).map((row) => summarizeMemoryRecord(row));
 }
 
 export function getCostReport(dbFile) {
@@ -299,8 +321,8 @@ export function upsertRunSummaries(dbFile, files) {
 }
 
 function maybeLearnFromRun(dbFile, id, payload) {
-  const summary = deriveMemorySummary(payload.output);
-  if (!summary) {
+  const record = deriveMemoryRecord(payload.output);
+  if (!record) {
     return;
   }
 
@@ -310,29 +332,159 @@ function maybeLearnFromRun(dbFile, id, payload) {
       insert into memory_records(source_run_id, summary, tags, confidence, created_at)
       values(
         ${Number(id)},
-        '${escapeSql(summary)}',
-        '${escapeSql(payload.status || "completed")}',
-        'medium',
+        '${escapeSql(record.summary)}',
+        '${escapeSql(record.tags.join(","))}',
+        '${escapeSql(record.confidence)}',
         '${new Date().toISOString()}'
       );
     `
   );
 }
 
-function deriveMemorySummary(output) {
+function deriveMemoryRecord(output) {
   if (!output || typeof output !== "object") {
     return null;
   }
 
+  const runOutcomeRecord = deriveRunOutcomeMemory(output);
+  if (runOutcomeRecord) {
+    return runOutcomeRecord;
+  }
+
   if (output.summary) {
-    return String(output.summary);
+    return {
+      summary: String(output.summary),
+      tags: ["type:summary"],
+      confidence: "medium"
+    };
   }
 
   if (output.answer) {
-    return String(output.answer);
+    return {
+      summary: String(output.answer),
+      tags: ["type:answer"],
+      confidence: "medium"
+    };
   }
 
   return null;
+}
+
+function deriveRunOutcomeMemory(output) {
+  const command = String(output.command || "");
+  const outcome = String(output.status || "");
+  const task = String(output.task || output.input || "").trim();
+  if (!command || !outcome || !task) {
+    return null;
+  }
+
+  if (command === "fix" && outcome === "confirmed") {
+    const changedFiles = output.apply?.changedFiles || [];
+    const selectedTests = output.stage?.request?.selectedTests || [];
+    return {
+      summary: `Confirmed fix for "${task}" touching ${changedFiles.length} file(s) with ${selectedTests.length} selected test(s).`,
+      tags: [
+        "type:run_outcome",
+        "command:fix",
+        "outcome:confirmed",
+        ...tokenTags(task)
+      ],
+      confidence: "high"
+    };
+  }
+
+  if (command === "fix" && outcome === "rolled_back") {
+    const rolledBackFiles = output.rollback?.changedFiles || output.artifact?.rolledBackFiles || [];
+    return {
+      summary: `Rolled back fix for "${task}" after failed confirmation across ${rolledBackFiles.length} file(s).`,
+      tags: [
+        "type:run_outcome",
+        "command:fix",
+        "outcome:rolled_back",
+        ...tokenTags(task)
+      ],
+      confidence: "high"
+    };
+  }
+
+  return null;
+}
+
+function normalizeRunListOptions(limitOrOptions) {
+  if (typeof limitOrOptions === "object" && limitOrOptions !== null) {
+    return {
+      limit: Math.max(1, Number(limitOrOptions.limit || 10)),
+      command: limitOrOptions.command ? String(limitOrOptions.command) : null,
+      status: limitOrOptions.status ? String(limitOrOptions.status) : null
+    };
+  }
+
+  return {
+    limit: Math.max(1, Number(limitOrOptions || 10)),
+    command: null,
+    status: null
+  };
+}
+
+function summarizeRun(row) {
+  const metadata = parseJson(row.metadataJson);
+  const output = parseJson(row.outputJson);
+  const metrics = parseJson(row.metricsJson);
+  const changedFiles = output?.apply?.changedFiles || output?.changedFiles || [];
+
+  return {
+    id: row.id,
+    command: row.command,
+    input: row.input,
+    task: output?.task || row.input,
+    status: row.status,
+    outcome: output?.status || row.status,
+    provider: metadata.provider || null,
+    model: metadata.model || null,
+    selectedTests: Number(metrics.selectedTests || 0),
+    totalTokens: Number(metrics.totalTokens || 0),
+    changedFiles,
+    startedAt: row.startedAt,
+    finishedAt: row.finishedAt
+  };
+}
+
+function summarizeMemoryRecord(row) {
+  const tags = String(row.tags || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return {
+    id: row.id,
+    sourceRunId: row.sourceRunId,
+    summary: row.summary,
+    type: tags.find((entry) => entry.startsWith("type:"))?.slice("type:".length) || "note",
+    tags,
+    confidence: row.confidence,
+    createdAt: row.createdAt
+  };
+}
+
+function tokenTags(value) {
+  return String(value || "")
+    .toLowerCase()
+    .split(/[^a-z0-9_]+/)
+    .filter((token) => token.length >= 3)
+    .slice(0, 6)
+    .map((token) => `topic:${token}`);
+}
+
+function parseJson(value) {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
 }
 
 function escapeSql(value) {

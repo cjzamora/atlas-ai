@@ -75,7 +75,7 @@ function usage() {
     "  atlas patch apply <artifact-id> [--root <path>] [--confirm] [--json]",
     "  atlas patch confirm <artifact-id> [--root <path>] [--json]",
     "  atlas patch rollback <artifact-id> [--root <path>] [--json]",
-    "  atlas runs [--root <path>] [--limit <n>] [--json]",
+    "  atlas runs [--root <path>] [--limit <n>] [--command <name>] [--status <name>] [--json]",
     "  atlas memory search \"<query>\" [--root <path>] [--limit <n>] [--json]",
     "  atlas cost report [--root <path>] [--json]",
     "  atlas test impacted \"<query>\" [--root <path>] [--limit <n>] [--json]",

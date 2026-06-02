@@ -20,6 +20,7 @@ export async function memorySearchCommand({ args, flags }) {
     ok: true,
     command: "memory search",
     query,
+    count: matches.length,
     matches
   };
 }

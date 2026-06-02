@@ -31,6 +31,14 @@ function formatHuman(value) {
     return formatFixOutput(value);
   }
 
+  if (value.command === "runs") {
+    return formatRunsOutput(value);
+  }
+
+  if (value.command === "memory search") {
+    return formatMemorySearchOutput(value);
+  }
+
   if (value.command === "exec prepare") {
     return formatExecOutput(value);
   }
@@ -179,6 +187,54 @@ function formatFixOutput(value) {
 
   if (!value.ok && value.stage?.error?.message) {
     lines.push("", `Error: ${value.stage.error.message}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatRunsOutput(value) {
+  const lines = [
+    `Runs: ${value.count ?? 0}`
+  ];
+
+  if (value.filters?.command || value.filters?.status) {
+    lines.push(
+      `Filters: command=${value.filters.command || "any"}, status=${value.filters.status || "any"}`
+    );
+  }
+
+  if (!value.runs?.length) {
+    lines.push("", "No runs found.");
+    return lines.join("\n");
+  }
+
+  lines.push("", "Recent runs:");
+  for (const run of value.runs) {
+    lines.push(`- #${run.id} ${run.command} ${run.status}/${run.outcome} ${run.task || run.input}`);
+    lines.push(`  provider=${run.provider || "unknown"} model=${run.model || "unknown"} tokens=${run.totalTokens ?? 0} tests=${run.selectedTests ?? 0}`);
+    if (run.changedFiles?.length) {
+      lines.push(`  changed=${run.changedFiles.join(", ")}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function formatMemorySearchOutput(value) {
+  const lines = [
+    `Query: ${value.query}`,
+    `Matches: ${value.count ?? 0}`
+  ];
+
+  if (!value.matches?.length) {
+    lines.push("", "No memory records found.");
+    return lines.join("\n");
+  }
+
+  lines.push("", "Memory:");
+  for (const match of value.matches) {
+    lines.push(`- [${match.type}] ${match.summary}`);
+    lines.push(`  tags=${(match.tags || []).join(", ") || "none"} confidence=${match.confidence || "unknown"}`);
   }
 
   return lines.join("\n");

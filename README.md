@@ -61,6 +61,8 @@ node src/cli.js patch apply patch-<id> --confirm --root playgrounds/react-nest-d
 node src/cli.js patch confirm patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
+node src/cli.js runs --command fix --status completed --root playgrounds/react-nest-demo
+node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
 ```
 
 ## Included Fixtures
@@ -129,6 +131,8 @@ Implemented:
 - thin `fix` orchestration that composes stage, validate, and apply/confirm
 - optional `fix --rollback-on-fail` path for automatic recovery after failed post-apply confirmation
 - aggregated `fix` metrics for tokens, selected tests, and phase status
+- filtered run history with summarized outcomes
+- lightweight memory extraction from confirmed and rolled-back fix runs
 
 Not implemented yet:
 
