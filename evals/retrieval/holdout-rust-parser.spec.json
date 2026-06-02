@@ -1,0 +1,35 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "lexer-tokenize",
+      "query": "tokenize expression string into tokens lexer",
+      "expectedEvidence": ["src/lexer.rs"],
+      "expectedTests": ["tests/lexer_test.rs"]
+    },
+    {
+      "id": "parser-ast",
+      "query": "parse tokens into ast with operator precedence",
+      "expectedEvidence": ["src/parser.rs"],
+      "expectedTests": ["tests/parser_test.rs"]
+    },
+    {
+      "id": "evaluator-eval",
+      "query": "evaluate ast to a number division by zero",
+      "expectedEvidence": ["src/evaluator.rs"],
+      "expectedTests": ["tests/evaluator_test.rs"]
+    },
+    {
+      "id": "token-enum",
+      "query": "token enum operators precedence helpers",
+      "expectedEvidence": ["src/token.rs"],
+      "expectedTests": ["tests/token_test.rs"]
+    },
+    {
+      "id": "evaluate-pipeline",
+      "query": "top level evaluate convenience function lexer parser evaluator pipeline",
+      "expectedEvidence": ["src/lib.rs", "src/evaluator.rs"],
+      "expectedTests": ["tests/evaluator_test.rs"]
+    }
+  ]
+}

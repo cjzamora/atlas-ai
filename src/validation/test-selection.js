@@ -1,10 +1,17 @@
 import { querySql } from "../core/sqlite.js";
 import { findRelevantRunPatterns } from "../core/store.js";
 
+// General, domain-agnostic impacted-test selection.
+//
+// As in retrieval.js, there is no domain vocabulary or filename-convention table.
+// Seeds are chosen by IDF-weighted lexical overlap with the repo's own corpus;
+// impacted code is expanded over the dependency graph; tests are ranked by how
+// directly they cover impacted code (graph coverage + cross-language stem match +
+// IDF-weighted shared path tokens).
+
 export function selectImpactedTests(dbFile, query, limit = 10) {
   const safeLimit = Math.max(1, Number(limit || 10));
   const tokens = tokenize(query);
-  const queryProfile = profileQuery(tokens);
   const memoryBoosts = buildMemoryBoosts(findRelevantRunPatterns(dbFile, query, 3));
 
   const evidenceRows = querySql(
@@ -20,10 +27,12 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
     `
   );
 
+  const idf = computeIdf(evidenceRows, tokens);
+
   const scoredFiles = evidenceRows
     .map((row) => ({
       path: row.path,
-      score: scoreEvidenceRow(row, tokens, queryProfile)
+      score: scoreEvidenceRow(row, tokens, idf)
     }))
     .filter((row) => !isTestPath(row.path))
     .filter((row) => row.score > 0)
@@ -87,8 +96,8 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
     const sourceScore = scoredFileMap.get(codePath)?.score || (seedPaths.includes(codePath) ? 3 : 1);
     const sourceDistance = impactedDistance.get(codePath) ?? 3;
     const coverageContribution = scoreCoverageContribution(prior.covers.size, sourceScore, sourceDistance);
-    const pathMatch = scoreTestPathMatch(testPath, tokens);
-    const directCoverage = scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens, queryProfile, sourceDistance);
+    const pathMatch = scoreTestPathMatch(testPath, tokens, idf);
+    const directCoverage = scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens, idf, sourceDistance);
     prior.score += coverageContribution;
     prior.score += pathMatch;
     prior.score += directCoverage;
@@ -174,7 +183,26 @@ function expandImpactedPaths(dbFile, seedPaths) {
   return [...visited.entries()].map(([path, distance]) => ({ path, distance }));
 }
 
-function scoreEvidenceRow(row, tokens, queryProfile) {
+// Inverse document frequency for query tokens across the indexed corpus — lets the
+// repo's own rare terms drive ranking instead of a hardcoded vocabulary.
+function computeIdf(rows, tokens) {
+  const total = rows.length || 1;
+  const idf = new Map();
+  for (const token of tokens) {
+    let documentFrequency = 0;
+    for (const row of rows) {
+      const text = `${row.path || ""} ${row.summary || ""} ${row.symbols || ""}`.toLowerCase();
+      if (text.includes(token)) {
+        documentFrequency += 1;
+      }
+    }
+    const weight = Math.log((total + 1) / (documentFrequency + 1));
+    idf.set(token, Math.max(0.2, weight));
+  }
+  return idf;
+}
+
+function scoreEvidenceRow(row, tokens, idf) {
   if (tokens.length === 0) {
     return 0;
   }
@@ -188,20 +216,20 @@ function scoreEvidenceRow(row, tokens, queryProfile) {
 
   let score = 0;
   for (const token of tokens) {
+    const weight = idf.get(token) || 0.2;
     if (pathValue.includes(token)) {
-      score += 5;
+      score += 5 * weight;
     }
     if (summaryValue.includes(token)) {
-      score += 2;
+      score += 2 * weight;
     }
     for (const symbol of symbolValues) {
       if (symbol.includes(token)) {
-        score += 4;
+        score += 4 * weight;
       }
     }
   }
-  score += scoreImplementationRole(pathValue, queryProfile);
-  return score;
+  return Math.round(score * 100) / 100;
 }
 
 function tokenize(query) {
@@ -241,20 +269,20 @@ function buildMemoryBoosts(patterns) {
   };
 }
 
-function scoreTestPathMatch(testPath, tokens) {
+function scoreTestPathMatch(testPath, tokens, idf) {
   const pathValue = String(testPath || "").toLowerCase();
   let score = 0;
 
   for (const token of tokens) {
     if (pathValue.includes(token)) {
-      score += 6;
+      score += 6 * (idf.get(token) || 0.2);
     }
   }
 
-  return score;
+  return Math.round(score * 100) / 100;
 }
 
-function scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens, queryProfile, sourceDistance) {
+function scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens, idf, sourceDistance) {
   const normalizedTestStem = normalizeStem(testPath);
   const normalizedCodeStem = normalizeStem(codePath);
   const testTokens = new Set(pathTokens(testPath));
@@ -279,15 +307,20 @@ function scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens, queryPr
   const sharedQueryPathTokens = tokens.filter((token) => testTokens.has(token) && codeTokens.has(token)).length;
   score += sharedQueryPathTokens * 4;
 
-  const entityTokens = entityAnchorTokens(tokens, queryProfile);
-  const matchingEntityTokens = entityTokens.filter((token) => testTokens.has(token) || codeTokens.has(token));
-  score += matchingEntityTokens.length * 12;
+  // IDF-weighted distinctive-token overlap. Replaces the old hardcoded role-token
+  // exclusion list: a token's discriminative power is measured from the corpus, so
+  // distinctive entity terms count and ubiquitous terms fall away — no word list.
+  for (const token of tokens) {
+    if (testTokens.has(token) || codeTokens.has(token)) {
+      score += 12 * (idf.get(token) || 0.2);
+    }
+  }
 
   if (sourceDistance > 1) {
     score -= (sourceDistance - 1) * 8;
   }
 
-  return score;
+  return Math.round(score * 100) / 100;
 }
 
 function specificityPenalty(coverCount) {
@@ -299,153 +332,34 @@ function scoreCoverageContribution(existingCoverCount, sourceScore, sourceDistan
   const distance = Math.max(0, Number(sourceDistance || 0));
   const distancePenalty = distance * 12;
   if (existingCoverCount === 0) {
-    return Math.max(1, normalizedSourceScore + 5 - distancePenalty);
+    return Math.max(1, Math.round(normalizedSourceScore + 5 - distancePenalty));
   }
 
-  return Math.max(1, Math.floor(normalizedSourceScore / 3) + 1 - distance * 4);
+  return Math.max(1, Math.round(normalizedSourceScore / 3) + 1 - distance * 4);
 }
 
+// Basename-level stem, with cross-language test affixes stripped (JS/TS
+// `.test`/`.spec`, Python `test_` prefix, Go/Ruby `_test`/`_spec` suffix,
+// Java/Go `Test`/`Spec` PascalCase). Reducing to basename lets a test in a
+// parallel directory (e.g. `tests/foo_test.go` vs `inventory/foo.go`) link to its
+// source without relying on import resolution, which only exists for JS/TS.
 function normalizeStem(filePath) {
-  return String(filePath || "")
-    .toLowerCase()
-    .replace(/\\/g, "/")
-    .replace(/(^|\/)(test|tests|__tests__)\//g, "/")
-    .replace(/(\.|-)(test|spec)\.[^.]+$/g, "")
-    .replace(/\.[^.]+$/g, "");
+  let base = String(filePath || "").replace(/\\/g, "/");
+  base = base.slice(base.lastIndexOf("/") + 1);
+  base = base.replace(/\.[^.]+$/, "");
+  base = base.replace(/(Test|Spec)$/, "");
+  base = base.replace(/^(test|spec)[._-]+/i, "");
+  base = base.replace(/[._-]+(test|spec)$/i, "");
+  return base.toLowerCase();
 }
 
 function isTestPath(filePath) {
   const normalizedPath = String(filePath || "").toLowerCase().replace(/\\/g, "/");
-  return /(^|\/)(test|tests|__tests__)\//.test(normalizedPath) || /\.(test|spec)\./.test(normalizedPath);
-}
-
-function profileQuery(tokens) {
-  return {
-    prefersServiceFiles: tokens.some((token) =>
-      ["service", "payments", "payment", "checkout", "charges", "charge"].includes(token)
-    ),
-    prefersValidationFiles: tokens.some((token) =>
-      ["validation", "validate", "validator", "account", "number", "country"].includes(token)
-    ),
-    prefersMapperFiles: tokens.some((token) => ["mapper", "mapping", "map", "sync", "transform"].includes(token)),
-    prefersQueueFiles: tokens.some((token) => ["queue", "retry", "delivery", "enqueue"].includes(token)),
-    prefersInngestFiles: tokens.some((token) => ["inngest", "worker", "job", "trigger"].includes(token)),
-    prefersGuardFiles: tokens.some((token) => ["guard", "auth", "authorize", "permission"].includes(token))
-  };
-}
-
-function scoreImplementationRole(pathValue, queryProfile) {
-  let score = 0;
-  const isServiceFile = pathValue.endsWith(".service.ts") || pathValue.endsWith(".service.js");
-  const isResolverFile = pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js");
-  const isModelFile = pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js");
-  const isValidationFile = pathValue.endsWith(".validation.ts") || pathValue.endsWith(".validation.js");
-  const isMapperFile = pathValue.endsWith(".mapper.ts") || pathValue.endsWith(".mapper.js");
-  const isQueueFile = /queue\.service\.(ts|js)$/.test(pathValue);
-  const isInngestFile = pathValue.endsWith(".inngest.ts") || pathValue.endsWith(".inngest.js");
-  const isGuardFile = pathValue.endsWith(".guard.ts") || pathValue.endsWith(".guard.js");
-  const isDashboardWrapper = /(^|\/)dashboard-/.test(pathValue);
-
-  if (queryProfile.prefersServiceFiles) {
-    if (isServiceFile) score += 10;
-    if (isResolverFile) score -= 4;
-    if (isModelFile) score -= 3;
+  if (/(^|\/)(tests?|__tests__|specs?)\//.test(normalizedPath)) {
+    return true;
   }
-
-  if (queryProfile.prefersValidationFiles) {
-    if (isValidationFile) score += 12;
-    if (isResolverFile) score -= 4;
-    if (isModelFile) score -= 3;
-  }
-
-  if (queryProfile.prefersMapperFiles) {
-    if (isMapperFile) score += 30;
-    if (isResolverFile) score -= 4;
-    if (isModelFile) score -= 3;
-    if (isServiceFile) score -= 2;
-  }
-
-  if (queryProfile.prefersQueueFiles) {
-    if (isQueueFile) {
-      score += 16;
-    } else if (isServiceFile) {
-      score += 4;
-    }
-    if (isResolverFile) score -= 4;
-  }
-
-  if (queryProfile.prefersInngestFiles) {
-    if (isInngestFile) score += 12;
-    if (isResolverFile) score -= 3;
-  }
-
-  if (queryProfile.prefersGuardFiles) {
-    if (isGuardFile) {
-      score += 10;
-    } else if (isServiceFile) {
-      score += 4;
-    }
-    if (isResolverFile) score -= 3;
-  }
-
-  if (
-    queryProfile.prefersServiceFiles ||
-    queryProfile.prefersValidationFiles ||
-    queryProfile.prefersMapperFiles ||
-    queryProfile.prefersQueueFiles ||
-    queryProfile.prefersInngestFiles ||
-    queryProfile.prefersGuardFiles
-  ) {
-    if (isDashboardWrapper) score -= 5;
-  }
-
-  return score;
-}
-
-function entityAnchorTokens(tokens, queryProfile) {
-  const roleTokens = new Set([
-    "service",
-    "validation",
-    "validate",
-    "validator",
-    "account",
-    "number",
-    "country",
-    "mapper",
-    "mapping",
-    "sync",
-    "queue",
-    "retry",
-    "delivery",
-    "guard",
-    "auth",
-    "api",
-    "key",
-    "current",
-    "app",
-    "provider",
-    "event",
-    "processing",
-    "webhook",
-    "tenant",
-    "inngest",
-    "worker",
-    "job",
-    "trigger",
-    "payments",
-    "payment",
-    "checkout",
-    "charges",
-    "charge"
-  ]);
-  const anchors = tokens.filter((token) => !roleTokens.has(token));
-  if (anchors.length > 0) {
-    return anchors;
-  }
-  if (queryProfile.prefersGuardFiles) {
-    return tokens.filter((token) => ["auth"].includes(token));
-  }
-  return [];
+  const base = (normalizedPath.split("/").pop() || "").replace(/\.[^.]+$/, "");
+  return /(^|[._-])(test|spec)([._-]|$)/.test(base) || /[a-z](test|spec)$/.test(base);
 }
 
 function pathTokens(filePath) {

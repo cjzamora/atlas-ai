@@ -26,6 +26,25 @@ const textExtensions = new Set([
   ".go",
   ".rs",
   ".java",
+  ".rb",
+  ".php",
+  ".kt",
+  ".swift",
+  ".scala",
+  ".c",
+  ".h",
+  ".cc",
+  ".cpp",
+  ".hpp",
+  ".cs",
+  ".html",
+  ".htm",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".vue",
+  ".svelte",
   ".yml",
   ".yaml",
   ".toml",
@@ -123,7 +142,7 @@ async function walk(rootDir, currentDir, files) {
     const normalized = content.slice(0, 12000);
     const structured = isJavaScriptFamily(extension)
       ? analyzeJavaScriptLikeSource(relativePath, normalized, extension)
-      : null;
+      : analyzeOtherLanguageSource(relativePath, normalized, extension);
     files.push({
       path: relativePath,
       absolutePath,
@@ -131,10 +150,10 @@ async function walk(rootDir, currentDir, files) {
       sizeBytes: Buffer.byteLength(content),
       hash: crypto.createHash("sha1").update(content).digest("hex"),
       summary: summarizeFile(relativePath, normalized),
-      symbols: structured?.symbols || extractSymbols(relativePath, normalized),
-      imports: structured?.imports || extractImports(relativePath, normalized),
-      calls: structured?.calls || extractCalls(relativePath, normalized),
-      receiverBindings: structured?.receiverBindings || {},
+      symbols: structured.symbols,
+      imports: structured.imports,
+      calls: structured.calls,
+      receiverBindings: structured.receiverBindings || {},
       relationships: []
     });
   }
@@ -154,6 +173,25 @@ function detectLanguage(extension) {
     ".go": "go",
     ".rs": "rust",
     ".java": "java",
+    ".rb": "ruby",
+    ".php": "php",
+    ".kt": "kotlin",
+    ".swift": "swift",
+    ".scala": "scala",
+    ".c": "c",
+    ".h": "c",
+    ".cc": "cpp",
+    ".cpp": "cpp",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
+    ".less": "less",
+    ".vue": "vue",
+    ".svelte": "svelte",
     ".yml": "yaml",
     ".yaml": "yaml",
     ".toml": "toml",
@@ -1010,6 +1048,305 @@ function extractCalls(relativePath, content) {
   return dedupeImports(calls);
 }
 
+// Dependency-light, language-aware extraction for non-JS/TS files. Each analyzer
+// returns symbols + imports + calls so the shared graph resolver (resolveCallEntry,
+// resolveImportEntry) can build real call/import edges. Unknown extensions fall back
+// to the generic regex extractors. No AST parser dependency.
+function analyzeOtherLanguageSource(relativePath, content, extension) {
+  const analyzer = NON_JS_ANALYZERS[extension];
+  if (analyzer) {
+    return analyzer(relativePath, content);
+  }
+  return {
+    symbols: extractSymbols(relativePath, content),
+    imports: extractImports(relativePath, content),
+    calls: extractCalls(relativePath, content),
+    receiverBindings: {}
+  };
+}
+
+function collectSymbolMatches(content, relativePath, pattern, kind) {
+  const symbols = [];
+  let match;
+  while ((match = pattern.exec(content)) !== null) {
+    if (match[1]) {
+      symbols.push({ name: match[1], kind, filePath: relativePath });
+    }
+  }
+  return symbols;
+}
+
+// Generic C-like call extraction (`name(`, `receiver.method(`) reused across
+// languages; resolveCallEntry maps the specifier to its owning file via the global
+// symbol index, so this yields cross-language call edges once symbols are known.
+function extractCallsWithSymbols(relativePath, content, symbols) {
+  const localSymbolNames = new Set(symbols.map((symbol) => symbol.name));
+  const calls = [];
+  const patterns = [
+    /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g,
+    /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/g
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const symbolName = match[2] || match[1];
+      if (IGNORED_CALLS.has(symbolName) || localSymbolNames.has(symbolName)) {
+        continue;
+      }
+      calls.push({
+        sourcePath: relativePath,
+        specifier: symbolName,
+        targetPath: "",
+        edgeType: "call",
+        receiver: match[2] ? match[1] : ""
+      });
+    }
+  }
+
+  return dedupeImports(calls);
+}
+
+function analyzePythonSource(relativePath, content) {
+  const symbols = dedupeSymbols([
+    ...collectSymbolMatches(content, relativePath, /^[ \t]*(?:async[ \t]+)?def[ \t]+([A-Za-z_][A-Za-z0-9_]*)/gm, "function"),
+    ...collectSymbolMatches(content, relativePath, /^[ \t]*class[ \t]+([A-Za-z_][A-Za-z0-9_]*)/gm, "class")
+  ]);
+
+  const imports = [];
+  let match;
+  const fromPattern = /^[ \t]*from[ \t]+([.\w]+)[ \t]+import[ \t]+(.+)$/gm;
+  while ((match = fromPattern.exec(content)) !== null) {
+    const importedSymbols = match[2]
+      .split(",")
+      .map((entry) => entry.trim().replace(/\s+as\s+.*$/, "").trim())
+      .filter((name) => name && name !== "*" && /^[A-Za-z_]/.test(name))
+      .map((name) => ({ importedName: name, localName: name }));
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols
+    });
+  }
+  const importPattern = /^[ \t]*import[ \t]+([.\w]+)(?:[ \t]+as[ \t]+\w+)?/gm;
+  while ((match = importPattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols: []
+    });
+  }
+
+  return {
+    symbols,
+    imports: dedupeImports(imports),
+    calls: extractCallsWithSymbols(relativePath, content, symbols),
+    receiverBindings: {}
+  };
+}
+
+function analyzeRubySource(relativePath, content) {
+  const symbols = dedupeSymbols([
+    ...collectSymbolMatches(content, relativePath, /^[ \t]*def[ \t]+(?:self\.)?([A-Za-z_][A-Za-z0-9_?!]*)/gm, "function"),
+    ...collectSymbolMatches(content, relativePath, /^[ \t]*class[ \t]+([A-Za-z_][A-Za-z0-9_:]*)/gm, "class"),
+    ...collectSymbolMatches(content, relativePath, /^[ \t]*module[ \t]+([A-Za-z_][A-Za-z0-9_:]*)/gm, "class")
+  ]);
+
+  const imports = [];
+  let match;
+  const requireRelativePattern = /^[ \t]*require_relative[ \t]+["']([^"']+)["']/gm;
+  while ((match = requireRelativePattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols: []
+    });
+  }
+  const requirePattern = /^[ \t]*require[ \t]+["']([^"']+)["']/gm;
+  while ((match = requirePattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "external_import",
+      importedSymbols: []
+    });
+  }
+
+  return {
+    symbols,
+    imports: dedupeImports(imports),
+    calls: extractCallsWithSymbols(relativePath, content, symbols),
+    receiverBindings: {}
+  };
+}
+
+function analyzeRustSource(relativePath, content) {
+  const symbols = dedupeSymbols([
+    ...collectSymbolMatches(content, relativePath, /\b(?:pub[ \t]+)?(?:async[ \t]+)?fn[ \t]+([A-Za-z_][A-Za-z0-9_]*)/g, "function"),
+    ...collectSymbolMatches(content, relativePath, /\b(?:pub[ \t]+)?struct[ \t]+([A-Za-z_][A-Za-z0-9_]*)/g, "class"),
+    ...collectSymbolMatches(content, relativePath, /\b(?:pub[ \t]+)?enum[ \t]+([A-Za-z_][A-Za-z0-9_]*)/g, "class"),
+    ...collectSymbolMatches(content, relativePath, /\b(?:pub[ \t]+)?trait[ \t]+([A-Za-z_][A-Za-z0-9_]*)/g, "class")
+  ]);
+
+  const imports = [];
+  let match;
+  const modPattern = /^[ \t]*(?:pub[ \t]+)?mod[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*;/gm;
+  while ((match = modPattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols: [],
+      rustKind: "mod"
+    });
+  }
+  const usePattern = /^[ \t]*(?:pub[ \t]+)?use[ \t]+((?:crate|super|self)::[A-Za-z0-9_:]+)/gm;
+  while ((match = usePattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols: [],
+      rustKind: "use"
+    });
+  }
+
+  return {
+    symbols,
+    imports: dedupeImports(imports),
+    calls: extractCallsWithSymbols(relativePath, content, symbols),
+    receiverBindings: {}
+  };
+}
+
+function analyzeGoSource(relativePath, content) {
+  const symbols = dedupeSymbols([
+    ...collectSymbolMatches(content, relativePath, /\bfunc[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(/g, "function"),
+    ...collectSymbolMatches(content, relativePath, /\bfunc[ \t]*\([^)]*\)[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(/g, "method"),
+    ...collectSymbolMatches(content, relativePath, /\btype[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]+(?:struct|interface)\b/g, "class")
+  ]);
+
+  // Go imports are package-path based and resolve to directories, not single files;
+  // we record them as external and rely on the symbol-index-backed call edges for
+  // intra-repo Go structure.
+  const imports = [];
+  let match;
+  const singleImportPattern = /^[ \t]*import[ \t]+(?:[A-Za-z0-9_]+[ \t]+)?"([^"]+)"/gm;
+  while ((match = singleImportPattern.exec(content)) !== null) {
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "external_import",
+      importedSymbols: []
+    });
+  }
+  const blockMatch = content.match(/import[ \t]*\(([\s\S]*?)\)/);
+  if (blockMatch) {
+    const blockPattern = /"([^"]+)"/g;
+    while ((match = blockPattern.exec(blockMatch[1])) !== null) {
+      imports.push({
+        sourcePath: relativePath,
+        specifier: match[1],
+        targetPath: "",
+        edgeType: "external_import",
+        importedSymbols: []
+      });
+    }
+  }
+
+  return {
+    symbols,
+    imports: dedupeImports(imports),
+    calls: extractCallsWithSymbols(relativePath, content, symbols),
+    receiverBindings: {}
+  };
+}
+
+// CSS family (.css/.scss/.sass/.less): @import/@use/@forward become import edges;
+// class/id selectors and @mixin/@function names become symbols so style files are
+// retrievable by what they define ("button card styles" -> the file with .button).
+function analyzeCssSource(relativePath, content) {
+  const imports = [];
+  let match;
+  const importPattern = /@(?:import|use|forward)\s+(?:url\(\s*)?["']([^"']+)["']/g;
+  while ((match = importPattern.exec(content)) !== null) {
+    if (/^[a-z]+:\/\//i.test(match[1])) {
+      continue;
+    }
+    imports.push({
+      sourcePath: relativePath,
+      specifier: match[1],
+      targetPath: "",
+      edgeType: "import",
+      importedSymbols: []
+    });
+  }
+
+  const symbols = dedupeSymbols([
+    ...collectSymbolMatches(content, relativePath, /(?:^|[\s,>+~(])\.([A-Za-z_][\w-]*)/g, "selector"),
+    ...collectSymbolMatches(content, relativePath, /(?:^|[\s,>+~(])#([A-Za-z_][\w-]*)/g, "selector"),
+    ...collectSymbolMatches(content, relativePath, /@(?:mixin|function)\s+([A-Za-z_][\w-]*)/g, "function")
+  ]);
+
+  return { symbols, imports: dedupeImports(imports), calls: [], receiverBindings: {} };
+}
+
+// HTML: <script src> and <link href> become import edges to local JS/CSS assets;
+// element id attributes become symbols (queryable anchors). External URLs ignored.
+function analyzeHtmlSource(relativePath, content) {
+  const imports = [];
+  const addAsset = (specifier) => {
+    if (specifier && !/^[a-z]+:\/\//i.test(specifier)) {
+      imports.push({
+        sourcePath: relativePath,
+        specifier,
+        targetPath: "",
+        edgeType: "import",
+        importedSymbols: []
+      });
+    }
+  };
+
+  let match;
+  const scriptPattern = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi;
+  while ((match = scriptPattern.exec(content)) !== null) {
+    addAsset(match[1]);
+  }
+  const linkPattern = /<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
+  while ((match = linkPattern.exec(content)) !== null) {
+    addAsset(match[1]);
+  }
+
+  const symbols = dedupeSymbols(
+    collectSymbolMatches(content, relativePath, /\bid\s*=\s*["']([A-Za-z_][\w-]*)["']/gi, "anchor")
+  );
+
+  return { symbols, imports: dedupeImports(imports), calls: [], receiverBindings: {} };
+}
+
+const NON_JS_ANALYZERS = {
+  ".py": analyzePythonSource,
+  ".rb": analyzeRubySource,
+  ".rs": analyzeRustSource,
+  ".go": analyzeGoSource,
+  ".css": analyzeCssSource,
+  ".scss": analyzeCssSource,
+  ".sass": analyzeCssSource,
+  ".less": analyzeCssSource,
+  ".html": analyzeHtmlSource,
+  ".htm": analyzeHtmlSource
+};
+
 function buildTestEdges(files) {
   const edges = [];
   const codeFiles = files.filter((file) => !isTestFile(file.path));
@@ -1068,6 +1405,80 @@ function buildSymbolIndex(files) {
 }
 
 function resolveImportEntry(sourcePath, entry, existingPaths) {
+  const extension = path.extname(sourcePath).toLowerCase();
+  if (isJavaScriptFamily(extension)) {
+    return resolveJsImportEntry(sourcePath, entry, existingPaths);
+  }
+  if (extension === ".py") {
+    return finalizeResolvedImport(entry, resolvePythonImport(sourcePath, entry.specifier, existingPaths));
+  }
+  if (extension === ".rb") {
+    if (entry.edgeType === "external_import") {
+      return { ...entry, targetPath: "", edgeType: "external_import" };
+    }
+    return finalizeResolvedImport(entry, resolveRubyImport(sourcePath, entry.specifier, existingPaths));
+  }
+  if (extension === ".rs") {
+    return finalizeResolvedImport(entry, resolveRustImport(sourcePath, entry, existingPaths));
+  }
+  if (extension === ".css" || extension === ".scss" || extension === ".sass" || extension === ".less") {
+    return finalizeResolvedImport(entry, resolveCssImport(sourcePath, entry.specifier, existingPaths));
+  }
+  if (extension === ".html" || extension === ".htm") {
+    return finalizeResolvedImport(entry, resolveAssetImport(sourcePath, entry.specifier, existingPaths));
+  }
+  if (extension === ".vue" || extension === ".svelte") {
+    return resolveJsImportEntry(sourcePath, entry, existingPaths);
+  }
+  return {
+    ...entry,
+    targetPath: entry.targetPath || "",
+    edgeType: entry.targetPath ? "import" : (entry.edgeType || "external_import")
+  };
+}
+
+function resolveCssImport(sourcePath, specifier, existingPaths) {
+  if (!specifier || /^[a-z]+:\/\//i.test(specifier)) {
+    return "";
+  }
+  const sourceDirectory = path.posix.dirname(normalizePath(sourcePath));
+  const base = path.posix.normalize(path.posix.join(sourceDirectory, specifier));
+  const directory = path.posix.dirname(base);
+  const name = path.posix.basename(base);
+  const extensions = ["", ".css", ".scss", ".sass", ".less"];
+  const candidates = [];
+  for (const ext of extensions) {
+    candidates.push(`${base}${ext}`);
+    // SCSS/Sass partials are conventionally underscore-prefixed and imported without it.
+    candidates.push(path.posix.join(directory, `_${name}${ext}`));
+  }
+  return candidates.find((candidate) => existingPaths.has(candidate)) || "";
+}
+
+function resolveAssetImport(sourcePath, specifier, existingPaths) {
+  if (!specifier || /^[a-z]+:\/\//i.test(specifier)) {
+    return "";
+  }
+  const cleaned = specifier.split(/[?#]/)[0];
+  let candidate;
+  if (cleaned.startsWith("/")) {
+    candidate = cleaned.replace(/^\/+/, "");
+  } else {
+    const sourceDirectory = path.posix.dirname(normalizePath(sourcePath));
+    candidate = path.posix.normalize(path.posix.join(sourceDirectory, cleaned));
+  }
+  return existingPaths.has(candidate) ? candidate : "";
+}
+
+function finalizeResolvedImport(entry, targetPath) {
+  return {
+    ...entry,
+    targetPath: targetPath || "",
+    edgeType: targetPath ? "import" : "external_import"
+  };
+}
+
+function resolveJsImportEntry(sourcePath, entry, existingPaths) {
   if (!entry.specifier.startsWith(".")) {
     return {
       ...entry,
@@ -1087,6 +1498,8 @@ function resolveImportEntry(sourcePath, entry, existingPaths) {
     `${normalizedBase}.ts`,
     `${normalizedBase}.tsx`,
     `${normalizedBase}.jsx`,
+    `${normalizedBase}.vue`,
+    `${normalizedBase}.svelte`,
     `${normalizedBase}.json`,
     path.posix.join(normalizedBase, "index.js"),
     path.posix.join(normalizedBase, "index.ts"),
@@ -1101,6 +1514,70 @@ function resolveImportEntry(sourcePath, entry, existingPaths) {
     targetPath: resolvedTarget,
     edgeType: resolvedTarget ? "import" : "external_import"
   };
+}
+
+function resolvePythonImport(sourcePath, specifier, existingPaths) {
+  if (!specifier) {
+    return "";
+  }
+  let parts;
+  if (specifier.startsWith(".")) {
+    const dots = (specifier.match(/^\.+/) || [""])[0].length;
+    const rest = specifier.slice(dots).split(".").filter(Boolean);
+    let dir = path.posix.dirname(normalizePath(sourcePath));
+    for (let index = 1; index < dots; index += 1) {
+      dir = path.posix.dirname(dir);
+    }
+    const dirParts = dir && dir !== "." ? dir.split("/") : [];
+    parts = [...dirParts, ...rest];
+  } else {
+    parts = specifier.split(".").filter(Boolean);
+  }
+  if (parts.length === 0) {
+    return "";
+  }
+  const base = parts.join("/");
+  const candidates = [`${base}.py`, path.posix.join(base, "__init__.py")];
+  return candidates.find((candidate) => existingPaths.has(candidate)) || "";
+}
+
+function resolveRubyImport(sourcePath, specifier, existingPaths) {
+  if (!specifier) {
+    return "";
+  }
+  const sourceDirectory = path.posix.dirname(normalizePath(sourcePath));
+  const base = path.posix.normalize(path.posix.join(sourceDirectory, specifier));
+  const candidate = base.endsWith(".rb") ? base : `${base}.rb`;
+  return existingPaths.has(candidate) ? candidate : "";
+}
+
+function resolveRustImport(sourcePath, entry, existingPaths) {
+  const sourceDirectory = path.posix.dirname(normalizePath(sourcePath));
+  const specifier = entry.specifier || "";
+  let baseDir;
+  let segments;
+  if (specifier.startsWith("crate::")) {
+    baseDir = "src";
+    segments = specifier.slice("crate::".length).split("::").filter(Boolean);
+  } else if (specifier.startsWith("super::")) {
+    baseDir = path.posix.dirname(sourceDirectory);
+    segments = specifier.slice("super::".length).split("::").filter(Boolean);
+  } else if (specifier.startsWith("self::")) {
+    baseDir = sourceDirectory;
+    segments = specifier.slice("self::".length).split("::").filter(Boolean);
+  } else {
+    baseDir = sourceDirectory;
+    segments = specifier.split("::").filter(Boolean);
+  }
+  for (let take = segments.length; take >= 1; take -= 1) {
+    const base = path.posix.join(baseDir, ...segments.slice(0, take));
+    const candidates = [`${base}.rs`, path.posix.join(base, "mod.rs")];
+    const found = candidates.find((candidate) => existingPaths.has(candidate));
+    if (found) {
+      return found;
+    }
+  }
+  return "";
 }
 
 function resolveCallEntry(file, entry, symbolIndex) {
@@ -1250,26 +1727,42 @@ function joinTokens(tokens) {
     .trim();
 }
 
+// Cross-language test-file recognition: JS/TS `.test`/`.spec`, Python `test_`
+// prefix, Go/Ruby `_test`/`_spec` suffix, Java/Go `Test`/`Spec` PascalCase, and
+// `test`/`tests`/`__tests__`/`spec`/`specs` directories. No domain knowledge.
 function isTestFile(filePath) {
-  return /(^|\/)(test|tests|__tests__)\/|(\.|-)(test|spec)\.[^.]+$/i.test(filePath);
+  const normalizedPath = String(filePath || "").toLowerCase().replace(/\\/g, "/");
+  if (/(^|\/)(tests?|__tests__|specs?)\//.test(normalizedPath)) {
+    return true;
+  }
+  const base = (normalizedPath.split("/").pop() || "").replace(/\.[^.]+$/, "");
+  return /(^|[._-])(test|spec)([._-]|$)/.test(base) || /[a-z](test|spec)$/.test(base);
 }
 
 function isLikelyTestFor(testFile, codeFile) {
-  const testBase = normalizeStem(testFile.path);
-  const codeBase = normalizeStem(codeFile.path);
-  if (testBase === codeBase) {
+  // Precise link for languages whose imports we resolve (JS/TS).
+  if (testFile.imports.some((entry) => entry.targetPath === codeFile.path)) {
     return true;
   }
 
-  return testFile.imports.some((entry) => entry.targetPath === codeFile.path);
+  // General fallback for every other language: same basename stem once test
+  // affixes are stripped (e.g. `tests/stock_test.go` <-> `inventory/stock.go`).
+  const testBase = normalizeStem(testFile.path);
+  const codeBase = normalizeStem(codeFile.path);
+  return Boolean(testBase) && testBase === codeBase;
 }
 
+// Basename-level stem with cross-language test affixes stripped. Reduced to
+// basename so a test in a parallel directory still matches its source where
+// import resolution is unavailable.
 function normalizeStem(filePath) {
-  return filePath
-    .replace(/\\/g, "/")
-    .replace(/(^|\/)(test|tests|__tests__)\//gi, "/")
-    .replace(/(\.|-)(test|spec)\.[^.]+$/i, "")
-    .replace(/\.[^.]+$/, "");
+  let base = String(filePath || "").replace(/\\/g, "/");
+  base = base.slice(base.lastIndexOf("/") + 1);
+  base = base.replace(/\.[^.]+$/, "");
+  base = base.replace(/(Test|Spec)$/, "");
+  base = base.replace(/^(test|spec)[._-]+/i, "");
+  base = base.replace(/[._-]+(test|spec)$/i, "");
+  return base.toLowerCase();
 }
 
 function normalizePath(filePath) {

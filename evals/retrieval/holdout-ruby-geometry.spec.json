@@ -1,0 +1,35 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "circle-area-circumference",
+      "query": "circle area circumference radius",
+      "expectedEvidence": ["lib/shapes/circle.rb"],
+      "expectedTests": ["spec/shapes/circle_spec.rb"]
+    },
+    {
+      "id": "rectangle-area-perimeter",
+      "query": "rectangle area perimeter width height",
+      "expectedEvidence": ["lib/shapes/rectangle.rb"],
+      "expectedTests": ["spec/shapes/rectangle_spec.rb"]
+    },
+    {
+      "id": "polygon-area-shoelace",
+      "query": "polygon area shoelace formula vertices",
+      "expectedEvidence": ["lib/shapes/polygon.rb"],
+      "expectedTests": ["spec/shapes/polygon_spec.rb"]
+    },
+    {
+      "id": "transform-points",
+      "query": "translate scale rotate points about origin",
+      "expectedEvidence": ["lib/transform.rb"],
+      "expectedTests": ["spec/transform_spec.rb"]
+    },
+    {
+      "id": "distance-helpers",
+      "query": "euclidean manhattan distance between two points",
+      "expectedEvidence": ["lib/distance.rb"],
+      "expectedTests": ["spec/distance_spec.rb"]
+    }
+  ]
+}

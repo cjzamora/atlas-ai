@@ -13,7 +13,7 @@ test("resolveModelConfig uses gpt-5.4 as the default OpenAI model", () => {
 test("buildExecutionRequest uses the resolved default model when none is provided", () => {
   const config = resolveModelConfig({});
   const request = buildExecutionRequest({
-    task: "fix pricing fallback bug",
+    task: "fix metering fallback bug",
     classification: {
       taskType: "bug_fix",
       risk: "low",

@@ -10,7 +10,7 @@ import { insertRun, updateRun, upsertFiles } from "../src/core/store.js";
 import { evalCommand } from "../src/commands/eval.js";
 
 const fixtureRoot = path.resolve("test/fixtures/sample-repo");
-const commercePlaygroundRoot = path.resolve("playgrounds/commerce-app");
+const holdoutRoot = path.resolve("playgrounds/holdout-js-eventbus");
 
 test("eval retrieval reports hit metrics for evidence and impacted tests from a spec file", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-retrieval-"));
@@ -30,14 +30,14 @@ test("eval retrieval reports hit metrics for evidence and impacted tests from a 
         limit: 5,
         cases: [
           {
-            query: "pricing coupon discount",
-            expectedEvidence: ["src/services/pricing.js"],
-            expectedTests: ["test/services/pricing.test.js"]
+            query: "metering ticket tally",
+            expectedEvidence: ["src/services/metering.js"],
+            expectedTests: ["test/services/metering.test.js"]
           },
           {
-            query: "checkout apply coupon",
-            expectedEvidence: ["src/services/checkout.js"],
-            expectedTests: ["test/services/checkout.test.js"]
+            query: "intake apply ticket",
+            expectedEvidence: ["src/services/intake.js"],
+            expectedTests: ["test/services/intake.test.js"]
           }
         ]
       }, null, 2)
@@ -55,7 +55,7 @@ test("eval retrieval reports hit metrics for evidence and impacted tests from a 
     assert.equal(result.summary.testHitRate, 1);
     assert.equal(result.cases[0].evidence.hit, true);
     assert.equal(result.cases[0].tests.hit, true);
-    assert.ok(result.cases[0].evidence.topMatches.includes("src/services/pricing.js"));
+    assert.ok(result.cases[0].evidence.topMatches.includes("src/services/metering.js"));
     assert.ok(result.cases[0].evidence.rank >= 1);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -80,7 +80,7 @@ test("eval retrieval surfaces misses when expected files are not retrieved", asy
         limit: 3,
         cases: [
           {
-            query: "pricing coupon discount",
+            query: "metering ticket tally",
             expectedEvidence: ["src/controllers/does-not-exist.js"],
             expectedTests: ["test/services/does-not-exist.test.js"]
           }
@@ -123,7 +123,7 @@ test("eval retrieval writes a report file and flags threshold failures", async (
         limit: 3,
         cases: [
           {
-            query: "pricing coupon discount",
+            query: "metering ticket tally",
             expectedEvidence: ["src/controllers/does-not-exist.js"],
             expectedTests: ["test/services/does-not-exist.test.js"]
           }
@@ -176,9 +176,9 @@ test("eval retrieval check-report fails when an archived report is stale", async
         limit: 5,
         cases: [
           {
-            query: "pricing coupon discount",
-            expectedEvidence: ["src/services/pricing.js"],
-            expectedTests: ["test/services/pricing.test.js"]
+            query: "metering ticket tally",
+            expectedEvidence: ["src/services/metering.js"],
+            expectedTests: ["test/services/metering.test.js"]
           }
         ]
       }, null, 2)
@@ -224,9 +224,9 @@ test("eval retrieval includes JSON diagnostics for impacted test ranking", async
         limit: 5,
         cases: [
           {
-            query: "pricing coupon discount",
-            expectedEvidence: ["src/services/pricing.js"],
-            expectedTests: ["test/services/pricing.test.js"]
+            query: "metering ticket tally",
+            expectedEvidence: ["src/services/metering.js"],
+            expectedTests: ["test/services/metering.test.js"]
           }
         ]
       }, null, 2)
@@ -239,9 +239,9 @@ test("eval retrieval includes JSON diagnostics for impacted test ranking", async
 
     const diagnostics = result.cases[0].tests.diagnostics;
     assert.ok(Array.isArray(diagnostics.topMatches));
-    assert.equal(diagnostics.topMatches[0].path, "test/services/pricing.test.js");
+    assert.equal(diagnostics.topMatches[0].path, "test/services/metering.test.js");
     assert.equal(typeof diagnostics.topMatches[0].score, "number");
-    assert.ok(diagnostics.topMatches[0].covers.includes("src/services/pricing.js"));
+    assert.ok(diagnostics.topMatches[0].covers.includes("src/services/metering.js"));
     assert.equal(typeof diagnostics.topMatches[0].scoreBreakdown.pathMatch, "number");
     assert.equal(typeof diagnostics.topMatches[0].scoreBreakdown.directCoverage, "number");
     assert.equal(typeof diagnostics.topMatches[0].scoreBreakdown.coverageContribution, "number");
@@ -269,9 +269,9 @@ test("eval retrieval fails rank quality checks independently of hit-rate thresho
         limit: 5,
         cases: [
           {
-            query: "pricing coupon discount",
-            expectedEvidence: ["src/services/pricing.js"],
-            expectedTests: ["test/services/pricing.test.js"],
+            query: "metering ticket tally",
+            expectedEvidence: ["src/services/metering.js"],
+            expectedTests: ["test/services/metering.test.js"],
             maxTestRank: 0
           }
         ]
@@ -299,12 +299,12 @@ test("eval retrieval fails rank quality checks independently of hit-rate thresho
   }
 });
 
-test("eval retrieval passes against the committed commerce playground baseline", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-commerce-playground-"));
+test("eval retrieval passes against the committed held-out baseline", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-holdout-baseline-"));
 
   try {
-    const workingRoot = path.join(tempRoot, "commerce-app");
-    await fs.cp(commercePlaygroundRoot, workingRoot, { recursive: true });
+    const workingRoot = path.join(tempRoot, "holdout-js-eventbus");
+    await fs.cp(holdoutRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const scan = await scanRepository(workingRoot);
@@ -314,13 +314,13 @@ test("eval retrieval passes against the committed commerce playground baseline",
       args: ["retrieval"],
       flags: {
         root: workingRoot,
-        spec: path.resolve("evals/retrieval/commerce-app.spec.json"),
+        spec: path.resolve("evals/retrieval/holdout-js-eventbus.spec.json"),
         failUnder: "1"
       }
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.summary.caseCount, 7);
+    assert.equal(result.summary.caseCount, 5);
     assert.equal(result.summary.evidenceHitRate, 1);
     assert.equal(result.summary.testHitRate, 1);
     assert.equal(result.summary.rankQualityPassed, true);
@@ -329,12 +329,12 @@ test("eval retrieval passes against the committed commerce playground baseline",
   }
 });
 
-test("eval retrieval check-report passes against the committed commerce archive", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-commerce-report-check-"));
+test("eval retrieval check-report passes against the committed held-out archive", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-holdout-report-check-"));
 
   try {
-    const workingRoot = path.join(tempRoot, "commerce-app");
-    await fs.cp(commercePlaygroundRoot, workingRoot, { recursive: true });
+    const workingRoot = path.join(tempRoot, "holdout-js-eventbus");
+    await fs.cp(holdoutRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const scan = await scanRepository(workingRoot);
@@ -344,8 +344,8 @@ test("eval retrieval check-report passes against the committed commerce archive"
       args: ["retrieval"],
       flags: {
         root: workingRoot,
-        spec: "evals/retrieval/commerce-app.spec.json",
-        report: "archive/commerce-app-retrieval-report.json",
+        spec: "evals/retrieval/holdout-js-eventbus.spec.json",
+        report: "archive/holdout-js-eventbus-retrieval-report.json",
         failUnder: "1",
         checkReport: true
       }
@@ -360,12 +360,12 @@ test("eval retrieval check-report passes against the committed commerce archive"
   }
 });
 
-test("eval retrieval reports bounded memory assistance for commerce playground cases", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-commerce-memory-"));
+test("eval retrieval reports bounded memory assistance for held-out cases", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-holdout-memory-"));
 
   try {
-    const workingRoot = path.join(tempRoot, "commerce-app");
-    await fs.cp(commercePlaygroundRoot, workingRoot, { recursive: true });
+    const workingRoot = path.join(tempRoot, "holdout-js-eventbus");
+    await fs.cp(holdoutRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const scan = await scanRepository(workingRoot);
@@ -373,7 +373,7 @@ test("eval retrieval reports bounded memory assistance for commerce playground c
 
     const confirmedRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix discount validation country fallback",
+      input: "fix subscribe publish on the event bus",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -383,14 +383,14 @@ test("eval retrieval reports bounded memory assistance for commerce playground c
       status: "completed",
       output: {
         command: "fix",
-        task: "fix discount validation country fallback",
+        task: "fix subscribe publish on the event bus",
         status: "confirmed",
         apply: {
-          changedFiles: ["api/src/modules/checkout/discount.validation.ts"]
+          changedFiles: ["src/event-bus.js"]
         },
         stage: {
           request: {
-            selectedTests: ["api/src/modules/checkout/__tests__/discount.validation.spec.ts"]
+            selectedTests: ["test/event-bus.test.js"]
           }
         }
       },
@@ -402,7 +402,7 @@ test("eval retrieval reports bounded memory assistance for commerce playground c
 
     const rolledBackRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix discount validation country fallback",
+      input: "fix subscribe publish on the event bus",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -412,10 +412,10 @@ test("eval retrieval reports bounded memory assistance for commerce playground c
       status: "failed",
       output: {
         command: "fix",
-        task: "fix discount validation country fallback",
+        task: "fix subscribe publish on the event bus",
         status: "rolled_back",
         rollback: {
-          changedFiles: ["api/src/modules/checkout/checkout.service.ts"]
+          changedFiles: ["src/subscription.js"]
         }
       },
       metrics: {
@@ -427,32 +427,32 @@ test("eval retrieval reports bounded memory assistance for commerce playground c
       args: ["retrieval"],
       flags: {
         root: workingRoot,
-        spec: path.resolve("evals/retrieval/commerce-app.spec.json"),
+        spec: path.resolve("evals/retrieval/holdout-js-eventbus.spec.json"),
         failUnder: "1"
       }
     });
 
-    const discountCase = result.cases.find((entry) => entry.id === "discount-validation");
+    const pubsubCase = result.cases.find((entry) => entry.id === "eventbus-pubsub");
     assert.equal(result.ok, true);
-    assert.equal(discountCase.memoryAssistance.retrievalBoostApplied, true);
-    assert.equal(discountCase.memoryAssistance.testBoostApplied, true);
-    assert.equal(discountCase.memoryAssistance.ignoredPatternCount >= 1, true);
-    assert.ok(discountCase.memoryAssistance.ignoredOutcomes.includes("rolled_back"));
-    assert.ok(discountCase.memoryAssistance.boostedPaths.includes("api/src/modules/checkout/discount.validation.ts"));
-    assert.ok(discountCase.memoryAssistance.boostedTests.includes("api/src/modules/checkout/__tests__/discount.validation.spec.ts"));
-    assert.equal(discountCase.memoryAssistance.topEvidenceMemoryBoosted, true);
-    assert.equal(discountCase.memoryAssistance.topTestMemoryBoosted, true);
+    assert.equal(pubsubCase.memoryAssistance.retrievalBoostApplied, true);
+    assert.equal(pubsubCase.memoryAssistance.testBoostApplied, true);
+    assert.equal(pubsubCase.memoryAssistance.ignoredPatternCount >= 1, true);
+    assert.ok(pubsubCase.memoryAssistance.ignoredOutcomes.includes("rolled_back"));
+    assert.ok(pubsubCase.memoryAssistance.boostedPaths.includes("src/event-bus.js"));
+    assert.ok(pubsubCase.memoryAssistance.boostedTests.includes("test/event-bus.test.js"));
+    assert.equal(pubsubCase.memoryAssistance.topEvidenceMemoryBoosted, true);
+    assert.equal(pubsubCase.memoryAssistance.topTestMemoryBoosted, true);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("confirmed memory stays bounded behind stronger commerce evidence", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-commerce-memory-bound-"));
+test("confirmed memory stays bounded behind stronger held-out evidence", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-holdout-memory-bound-"));
 
   try {
-    const workingRoot = path.join(tempRoot, "commerce-app");
-    await fs.cp(commercePlaygroundRoot, workingRoot, { recursive: true });
+    const workingRoot = path.join(tempRoot, "holdout-js-eventbus");
+    await fs.cp(holdoutRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const scan = await scanRepository(workingRoot);
@@ -460,7 +460,7 @@ test("confirmed memory stays bounded behind stronger commerce evidence", async (
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix checkout discount validation country",
+      input: "fix cache handling in the event bus",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -470,14 +470,14 @@ test("confirmed memory stays bounded behind stronger commerce evidence", async (
       status: "completed",
       output: {
         command: "fix",
-        task: "fix checkout discount validation country",
+        task: "fix cache handling in the event bus",
         status: "confirmed",
         apply: {
-          changedFiles: ["api/src/modules/checkout/checkout.service.ts"]
+          changedFiles: ["src/event-bus.js"]
         },
         stage: {
           request: {
-            selectedTests: ["api/src/modules/checkout/__tests__/checkout.service.spec.ts"]
+            selectedTests: ["test/event-bus.test.js"]
           }
         }
       },
@@ -487,11 +487,11 @@ test("confirmed memory stays bounded behind stronger commerce evidence", async (
       }
     });
 
-    const evidence = searchEvidence(runtime.paths.dbFile, "discount validation code country cart subtotal", 5);
+    const evidence = searchEvidence(runtime.paths.dbFile, "ttl cache get set evict", 5);
 
     assert.equal(evidence.memoryAssistance.retrievalBoostApplied, true);
-    assert.ok(evidence.memoryAssistance.boostedPaths.includes("api/src/modules/checkout/checkout.service.ts"));
-    assert.equal(evidence.matches[0].path, "api/src/modules/checkout/discount.validation.ts");
+    assert.ok(evidence.memoryAssistance.boostedPaths.includes("src/event-bus.js"));
+    assert.equal(evidence.matches[0].path, "src/cache-store.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

@@ -4,46 +4,81 @@ import path from "node:path";
 import { scanRepository } from "../src/core/scanner.js";
 
 const fixtureRoot = path.resolve("test/fixtures/sample-repo");
-const playgroundRoot = path.resolve("playgrounds/react-nest-demo");
+const tsFixtureRoot = path.resolve("test/fixtures/ts-graph-sample");
+const webFixtureRoot = path.resolve("playgrounds/holdout-web-dashboard");
 
 test("scanner extracts symbols, imports, calls, and test relationships", async () => {
   const result = await scanRepository(fixtureRoot);
   const fileMap = new Map(result.files.map((file) => [file.path, file]));
 
-  const checkoutService = fileMap.get("src/services/checkout.js");
-  assert.ok(checkoutService, "checkout service should be indexed");
-  assert.ok(checkoutService.symbols.some((symbol) => symbol.name === "applyCoupon"));
-  assert.ok(checkoutService.imports.some((entry) => entry.targetPath === "src/services/pricing.js"));
-  assert.ok(checkoutService.calls.some((entry) => entry.targetPath === "src/services/pricing.js"));
+  const intakeService = fileMap.get("src/services/intake.js");
+  assert.ok(intakeService, "intake service should be indexed");
+  assert.ok(intakeService.symbols.some((symbol) => symbol.name === "applyTicket"));
+  assert.ok(intakeService.imports.some((entry) => entry.targetPath === "src/services/metering.js"));
+  assert.ok(intakeService.calls.some((entry) => entry.targetPath === "src/services/metering.js"));
 
-  const checkoutTest = fileMap.get("test/services/checkout.test.js");
-  assert.ok(checkoutTest, "checkout test should be indexed");
-  assert.ok(checkoutTest.relationships.some((edge) => edge.edgeType === "tests" && edge.targetPath === "src/services/checkout.js"));
+  const intakeTest = fileMap.get("test/services/intake.test.js");
+  assert.ok(intakeTest, "intake test should be indexed");
+  assert.ok(intakeTest.relationships.some((edge) => edge.edgeType === "tests" && edge.targetPath === "src/services/intake.js"));
 });
 
 test("scanner extracts TypeScript class methods and resolves method calls across imported services", async () => {
-  const result = await scanRepository(playgroundRoot);
+  const result = await scanRepository(tsFixtureRoot);
   const fileMap = new Map(result.files.map((file) => [file.path, file]));
 
-  const pricingService = fileMap.get("apps/api/src/checkout/pricing.service.ts");
-  assert.ok(pricingService, "pricing service should be indexed");
+  const areaCalculator = fileMap.get("src/area-calculator.ts");
+  assert.ok(areaCalculator, "area calculator should be indexed");
   assert.ok(
-    pricingService.symbols.some((symbol) => symbol.name === "calculateDiscount" && symbol.kind === "method"),
-    "pricing service should expose calculateDiscount as a method symbol"
+    areaCalculator.symbols.some((symbol) => symbol.name === "rectangleArea" && symbol.kind === "method"),
+    "area calculator should expose rectangleArea as a method symbol"
   );
 
-  const checkoutService = fileMap.get("apps/api/src/checkout/checkout.service.ts");
-  assert.ok(checkoutService, "checkout service should be indexed");
+  const shapeService = fileMap.get("src/shape-service.ts");
+  assert.ok(shapeService, "shape service should be indexed");
   assert.ok(
-    checkoutService.calls.some((entry) =>
-      entry.specifier === "calculateDiscount" && entry.targetPath === "apps/api/src/checkout/pricing.service.ts"
+    shapeService.calls.some((entry) =>
+      entry.specifier === "rectangleArea" && entry.targetPath === "src/area-calculator.ts"
     ),
-    "checkout service should resolve calculateDiscount to pricing.service.ts"
+    "shape service should resolve rectangleArea to area-calculator.ts"
   );
   assert.ok(
-    checkoutService.calls.some((entry) =>
-      entry.specifier === "findCoupon" && entry.targetPath === "apps/api/src/checkout/coupon.service.ts"
+    shapeService.calls.some((entry) =>
+      entry.specifier === "rectanglePerimeter" && entry.targetPath === "src/perimeter-calculator.ts"
     ),
-    "checkout service should resolve findCoupon to coupon.service.ts"
+    "shape service should resolve rectanglePerimeter to perimeter-calculator.ts"
+  );
+});
+
+test("scanner links HTML to its script/stylesheet assets and resolves CSS imports", async () => {
+  const result = await scanRepository(webFixtureRoot);
+  const fileMap = new Map(result.files.map((file) => [file.path, file]));
+
+  const html = fileMap.get("index.html");
+  assert.ok(html, "index.html should be indexed");
+  assert.ok(
+    html.imports.some((entry) => entry.targetPath === "scripts/dashboard.js"),
+    "html should link its <script src> to the JS module"
+  );
+  assert.ok(
+    html.imports.some((entry) => entry.targetPath === "styles/main.css"),
+    "html should link its <link href> to the stylesheet"
+  );
+
+  const mainCss = fileMap.get("styles/main.css");
+  assert.ok(mainCss, "main.css should be indexed");
+  assert.ok(
+    mainCss.imports.some((entry) => entry.targetPath === "styles/base.css"),
+    "css @import should resolve to base.css"
+  );
+  assert.ok(
+    mainCss.symbols.some((symbol) => symbol.name === "card"),
+    "css class selectors should be extracted as symbols"
+  );
+
+  const themeScss = fileMap.get("styles/theme.scss");
+  assert.ok(themeScss, "theme.scss should be indexed");
+  assert.ok(
+    themeScss.imports.some((entry) => entry.targetPath === "styles/base.css"),
+    "scss @use should resolve across extensions to base.css"
   );
 });
