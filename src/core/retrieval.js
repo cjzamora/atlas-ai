@@ -6,6 +6,7 @@ export function searchEvidence(dbFile, query, limit) {
   if (tokens.length === 0) {
     return { matches: [] };
   }
+  const queryProfile = profileQuery(tokens);
 
   const rows = querySql(
     dbFile,
@@ -31,7 +32,7 @@ export function searchEvidence(dbFile, query, limit) {
   );
 
   const matches = rows
-    .map((row) => scoreRow(row, tokens))
+    .map((row) => scoreRow(row, tokens, queryProfile))
     .filter((row) => row.score > 0)
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
     .slice(0, Math.max(1, safeLimit));
@@ -41,7 +42,7 @@ export function searchEvidence(dbFile, query, limit) {
   };
 }
 
-function scoreRow(row, tokens) {
+function scoreRow(row, tokens, queryProfile) {
   const haystack = {
     path: String(row.path || "").toLowerCase(),
     summary: String(row.summary || "").toLowerCase(),
@@ -123,6 +124,19 @@ function scoreRow(row, tokens) {
     }
   }
 
+  if (queryProfile.prefersSourceFiles) {
+    const isTestFile = /(^|\/)(test|tests)\//.test(haystack.path) || /\.test\./.test(haystack.path);
+    const isSourceFile = /(^|\/)src\//.test(haystack.path);
+    if (isTestFile) {
+      score -= 6;
+    } else {
+      score += 2;
+    }
+    if (isSourceFile) {
+      score += 3;
+    }
+  }
+
   return {
     path: row.path,
     language: row.language,
@@ -147,4 +161,11 @@ function tokenize(query) {
     .split(/[^a-z0-9_]+/)
     .map((token) => token.trim())
     .filter((token) => token.length >= 3);
+}
+
+function profileQuery(tokens) {
+  const prefersSourceFiles = tokens.some((token) => ["fix", "bug", "issue", "regression", "fallback"].includes(token));
+  return {
+    prefersSourceFiles
+  };
 }

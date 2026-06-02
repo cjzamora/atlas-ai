@@ -37,3 +37,26 @@ test("plan artifact includes graph-backed selected tests and validation strategy
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("pricing-focused bug plans rank pricing evidence ahead of downstream checkout files", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-ranking-"));
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const task = "fix pricing fallback bug";
+    const classification = classifyTask(task);
+    const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
+    const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
+    const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
+
+    assert.equal(evidence.matches[0].path, "src/services/pricing.js");
+    assert.equal(plan.selectedTests[0], "test/services/pricing.test.js");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
