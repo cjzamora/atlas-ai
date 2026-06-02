@@ -28,6 +28,11 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
         command: "fix",
         task: "fix pricing fallback bug",
         status: "confirmed",
+        memoryAssistance: {
+          matchedPatternCount: 1,
+          retrievalBoostApplied: true,
+          testBoostApplied: true
+        },
         artifactId: "patch-confirmed",
         apply: {
           changedFiles: ["src/services/pricing.js"]
@@ -78,6 +83,9 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
     assert.equal(runs[0].totalTokens, 30);
     assert.equal(runs[0].selectedTests, 2);
     assert.deepEqual(runs[0].changedFiles, ["src/services/pricing.js"]);
+    assert.equal(runs[0].memoryAssisted, true);
+    assert.equal(runs[0].matchedPatternCount, 1);
+    assert.equal(runs[0].memoryOutcome, "confirmed");
 
     const failedRuns = listRuns(runtime.paths.dbFile, {
       limit: 10,
@@ -109,6 +117,11 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
         command: "fix",
         task: "fix pricing fallback bug",
         status: "confirmed",
+        memoryAssistance: {
+          matchedPatternCount: 1,
+          retrievalBoostApplied: true,
+          testBoostApplied: false
+        },
         artifactId: "patch-confirmed",
         apply: {
           changedFiles: ["src/services/pricing.js"]
@@ -157,6 +170,7 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
     assert.equal(matches.length, 2);
     assert.equal(matches[0].type, "run_outcome");
     assert.ok(matches[0].tags.includes("command:fix"));
+    assert.ok(matches.some((entry) => entry.tags.includes("memory:assisted")));
     assert.ok(matches.some((entry) => entry.tags.includes("outcome:confirmed")));
     assert.ok(matches.some((entry) => entry.tags.includes("outcome:rolled_back")));
     assert.ok(matches.some((entry) => /Confirmed fix/.test(entry.summary)));

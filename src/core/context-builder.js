@@ -46,6 +46,13 @@ export async function buildContextBundle({ rootDir, task, classification, eviden
       files: pattern.files || [],
       tests: pattern.tests || []
     })),
+    memoryAssistance: plan.memoryAssistance || {
+      matchedPatternCount: 0,
+      retrievalBoostApplied: false,
+      testBoostApplied: false,
+      boostedPaths: [],
+      boostedTests: []
+    },
     validationStrategy: plan.validationStrategy,
     files
   };

@@ -421,6 +421,7 @@ function deriveRunOutcomeMemory(output) {
         "type:run_outcome",
         "command:fix",
         "outcome:confirmed",
+        ...(output.memoryAssistance?.matchedPatternCount > 0 ? ["memory:assisted"] : []),
         ...changedFiles.map((file) => `file:${file}`),
         ...selectedTests.map((testPath) => `test:${testPath}`),
         ...tokenTags(task)
@@ -437,6 +438,7 @@ function deriveRunOutcomeMemory(output) {
         "type:run_outcome",
         "command:fix",
         "outcome:rolled_back",
+        ...(output.memoryAssistance?.matchedPatternCount > 0 ? ["memory:assisted"] : []),
         ...rolledBackFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
@@ -453,6 +455,7 @@ function deriveRunOutcomeMemory(output) {
         "type:run_outcome",
         "command:fix",
         "outcome:apply_failed_validation",
+        ...(output.memoryAssistance?.matchedPatternCount > 0 ? ["memory:assisted"] : []),
         ...changedFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
@@ -493,6 +496,9 @@ function summarizeRun(row) {
     status: row.status,
     outcome: output?.status || row.status,
     failureReason: output?.failureReason || output?.error?.message || output?.validation?.failureReason || output?.postApplyValidation?.failureReason || null,
+    memoryAssisted: Number(output?.memoryAssistance?.matchedPatternCount || 0) > 0 || Boolean(output?.memoryAssistance?.retrievalBoostApplied) || Boolean(output?.memoryAssistance?.testBoostApplied),
+    matchedPatternCount: Number(output?.memoryAssistance?.matchedPatternCount || 0),
+    memoryOutcome: output?.status || null,
     provider: metadata.provider || null,
     model: metadata.model || null,
     selectedTests: Number(metrics.selectedTests || 0),

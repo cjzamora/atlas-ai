@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import { ensureAtlasRuntime } from "../src/core/runtime.js";
 import { scanRepository } from "../src/core/scanner.js";
-import { upsertFiles } from "../src/core/store.js";
+import { insertRun, updateRun, upsertFiles } from "../src/core/store.js";
 import { parsePatchResponse } from "../src/core/patch-artifact.js";
 import { patchCommand } from "../src/commands/patch.js";
 
@@ -110,6 +110,93 @@ test("patch stage writes a review-only artifact and patch show returns it", asyn
     assert.equal(shown.command, "patch show");
     assert.equal(shown.artifact.id, staged.artifactId);
     assert.equal(shown.artifact.rawOutput, staged.artifact.rawOutput);
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
+    globalThis.fetch = previousFetch;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch stage persists matched memory hints and assistance metadata on the artifact", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-stage-memory-"));
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const priorRun = insertRun(runtime.paths.dbFile, {
+      command: "fix",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "openai",
+        model: "gpt-5.4"
+      }
+    });
+    updateRun(runtime.paths.dbFile, priorRun.id, {
+      status: "completed",
+      output: {
+        command: "fix",
+        task: "fix pricing fallback bug",
+        status: "confirmed",
+        apply: {
+          changedFiles: ["src/services/pricing.js"]
+        },
+        stage: {
+          request: {
+            selectedTests: ["test/services/pricing.test.js"]
+          }
+        }
+      },
+      metrics: {
+        totalTokens: 30,
+        selectedTests: 1,
+        changedFiles: 1
+      }
+    });
+
+    process.env.OPENAI_API_KEY = "test-key";
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: "resp_patch_memory",
+        status: "completed",
+        output_text: [
+          "```diff",
+          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+          "--- a/src/services/pricing.js",
+          "+++ b/src/services/pricing.js",
+          "@@ -1,3 +1,3 @@",
+          "-const total = subtotal - discount;",
+          "+const total = Math.max(0, subtotal - discount);",
+          "```"
+        ].join("\n"),
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          total_tokens: 30
+        }
+      })
+    });
+
+    const staged = await patchCommand({
+      args: ["stage", "fix fallback regression"],
+      flags: { root: workingRoot, provider: "openai", model: "gpt-5.4", limit: 5 }
+    });
+
+    assert.equal(staged.artifact.memoryHints.length, 1);
+    assert.equal(staged.artifact.memoryAssistance.matchedPatternCount, 1);
+    assert.equal(staged.artifact.memoryAssistance.retrievalBoostApplied, true);
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY;

@@ -40,7 +40,12 @@ export function searchEvidence(dbFile, query, limit) {
     .slice(0, Math.max(1, safeLimit));
 
   return {
-    matches
+    matches,
+    memoryAssistance: {
+      matchedPatternCount: memoryBoosts.matchedPatternCount,
+      retrievalBoostApplied: memoryBoosts.files.size > 0,
+      boostedPaths: [...memoryBoosts.files.keys()]
+    }
   };
 }
 
@@ -176,17 +181,20 @@ function profileQuery(tokens) {
 
 function buildMemoryBoosts(patterns) {
   const files = new Map();
+  let matchedPatternCount = 0;
 
   for (const pattern of patterns || []) {
     if (pattern.outcome !== "confirmed") {
       continue;
     }
+    matchedPatternCount += 1;
     for (const filePath of pattern.files || []) {
       files.set(filePath, Math.min(3, (files.get(filePath) || 0) + 2));
     }
   }
 
   return {
-    files
+    files,
+    matchedPatternCount
   };
 }

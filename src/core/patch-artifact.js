@@ -110,6 +110,14 @@ export function buildPatchArtifact({
     rawOutput: parsed.rawOutput,
     usage: usage || null,
     selectedTests: request?.selectedTests || [],
+    memoryHints: request?.memoryHints || [],
+    memoryAssistance: request?.memoryAssistance || {
+      matchedPatternCount: 0,
+      retrievalBoostApplied: false,
+      testBoostApplied: false,
+      boostedPaths: [],
+      boostedTests: []
+    },
     files: request?.files || [],
     validation: null,
     postApplyValidation: null,

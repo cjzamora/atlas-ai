@@ -11,6 +11,13 @@ export function buildExecutionRequest({ task, classification, bundle, prompt, pr
     contextBudget: bundle.contextBudget,
     selectedTests: bundle.selectedTests,
     memoryHints: bundle.memoryHints || [],
+    memoryAssistance: bundle.memoryAssistance || {
+      matchedPatternCount: 0,
+      retrievalBoostApplied: false,
+      testBoostApplied: false,
+      boostedPaths: [],
+      boostedTests: []
+    },
     files: bundle.files.map((file) => ({
       path: file.path,
       role: file.role,

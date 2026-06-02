@@ -229,6 +229,9 @@ function formatRunsOutput(value) {
     if (run.changedFiles?.length) {
       lines.push(`  changed=${run.changedFiles.join(", ")}`);
     }
+    if (run.memoryAssisted) {
+      lines.push(`  memory=assisted patterns=${run.matchedPatternCount ?? 0} outcome=${run.memoryOutcome || "unknown"}`);
+    }
     if (run.failureReason) {
       lines.push(`  reason=${run.failureReason}`);
     }
@@ -364,10 +367,19 @@ function formatPatchShowOutput(value) {
     `Status: ${artifact.status || "unknown"}`,
     `Review only: ${artifact.reviewOnly === true ? "yes" : "unknown"}`,
     `Parse status: ${artifact.parseStatus || "unknown"}`,
+    `Memory assisted: ${artifact.memoryAssistance?.matchedPatternCount > 0 || artifact.memoryAssistance?.retrievalBoostApplied || artifact.memoryAssistance?.testBoostApplied ? "yes" : "no"}`,
     "",
     "Patch blocks:",
     ...formatLines((artifact.patches || []).map((patch, index) => `${index + 1}. ${patch.kind}${patch.language ? ` (${patch.language})` : ""}`))
   ];
+
+  if ((artifact.memoryHints || []).length > 0) {
+    lines.push(
+      "",
+      "Matched memory hints:",
+      ...formatLines((artifact.memoryHints || []).map((hint) => `${hint.outcome}: ${hint.summary}`))
+    );
+  }
 
   if (artifact.validation) {
     lines.push(

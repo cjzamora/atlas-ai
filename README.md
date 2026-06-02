@@ -137,6 +137,7 @@ Implemented:
 - advisory prior-pattern hints in `plan` and `context` from relevant confirmed fix history
 - advisory prior-pattern hints in `prompt`, `exec prepare`, and staged patch requests from relevant confirmed fix history
 - bounded retrieval and impacted-test ranking boosts from prior confirmed fix history
+- run summaries and patch artifacts record when prior memory influenced Atlas behavior
 
 Not implemented yet:
 

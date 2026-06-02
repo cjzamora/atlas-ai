@@ -32,7 +32,12 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
   if (impactedPaths.length === 0) {
     return {
       impactedFiles: [],
-      tests: []
+      tests: [],
+      memoryAssistance: {
+        matchedPatternCount: memoryBoosts.matchedPatternCount,
+        testBoostApplied: memoryBoosts.tests.size > 0,
+        boostedTests: [...memoryBoosts.tests.keys()]
+      }
     };
   }
 
@@ -80,7 +85,12 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
 
   return {
     impactedFiles: impactedPaths,
-    tests
+    tests,
+    memoryAssistance: {
+      matchedPatternCount: memoryBoosts.matchedPatternCount,
+      testBoostApplied: memoryBoosts.tests.size > 0,
+      boostedTests: [...memoryBoosts.tests.keys()]
+    }
   };
 }
 
@@ -159,17 +169,20 @@ function escapeSql(value) {
 
 function buildMemoryBoosts(patterns) {
   const tests = new Map();
+  let matchedPatternCount = 0;
 
   for (const pattern of patterns || []) {
     if (pattern.outcome !== "confirmed") {
       continue;
     }
+    matchedPatternCount += 1;
     for (const testPath of pattern.tests || []) {
       tests.set(testPath, Math.min(3, (tests.get(testPath) || 0) + 2));
     }
   }
 
   return {
-    tests
+    tests,
+    matchedPatternCount
   };
 }

@@ -25,7 +25,7 @@ export function classifyTask(task) {
   };
 }
 
-export function buildPlanArtifact(task, classification, matches, impacted = { impactedFiles: [], tests: [] }, priorPatterns = []) {
+export function buildPlanArtifact(task, classification, matches, impacted = { impactedFiles: [], tests: [] }, priorPatterns = [], memoryAssistance = {}) {
   const files = matches.slice(0, 5).map((match) => match.path);
   const relatedPaths = [...new Set(matches.flatMap((match) => match.relatedPaths || []))]
     .filter((candidate) => candidate && !files.includes(candidate))
@@ -59,6 +59,13 @@ export function buildPlanArtifact(task, classification, matches, impacted = { im
     likelyTests: tests,
     selectedTests,
     priorPatterns: priorPatterns.slice(0, 3),
+    memoryAssistance: {
+      matchedPatternCount: Number(memoryAssistance.matchedPatternCount || priorPatterns.length || 0),
+      retrievalBoostApplied: Boolean(memoryAssistance.retrievalBoostApplied),
+      testBoostApplied: Boolean(memoryAssistance.testBoostApplied),
+      boostedPaths: memoryAssistance.boostedPaths || [],
+      boostedTests: memoryAssistance.boostedTests || []
+    },
     validationStrategy: buildValidationStrategy(classification, impacted, heuristicTests),
     callHints,
     steps,

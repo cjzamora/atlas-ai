@@ -20,7 +20,18 @@ export async function promptCommand({ args, flags }) {
     ? selectImpactedTests(runtime.paths.dbFile, task, limit)
     : { impactedFiles: [], tests: [] };
   const priorPatterns = findRelevantRunPatterns(runtime.paths.dbFile, task, 3);
-  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted, priorPatterns);
+  const memoryAssistance = {
+    matchedPatternCount: Math.max(
+      Number(evidence.memoryAssistance?.matchedPatternCount || 0),
+      Number(impacted.memoryAssistance?.matchedPatternCount || 0),
+      priorPatterns.length
+    ),
+    retrievalBoostApplied: Boolean(evidence.memoryAssistance?.retrievalBoostApplied),
+    testBoostApplied: Boolean(impacted.memoryAssistance?.testBoostApplied),
+    boostedPaths: evidence.memoryAssistance?.boostedPaths || [],
+    boostedTests: impacted.memoryAssistance?.boostedTests || []
+  };
+  const plan = buildPlanArtifact(task, classification, evidence.matches, impacted, priorPatterns, memoryAssistance);
   const bundle = await buildContextBundle({
     rootDir: runtime.rootDir,
     task,
