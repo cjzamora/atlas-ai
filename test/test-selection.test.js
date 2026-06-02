@@ -95,3 +95,68 @@ test("impacted test selection uses prior confirmed fix memory as a bounded tie-b
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("impacted test selection prefers direct structural tests over broad umbrella tests", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-structural-ranking-"));
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.mkdir(path.join(workingRoot, "src", "core"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "test"), { recursive: true });
+
+    await fs.writeFile(
+      path.join(workingRoot, "src", "core", "scanner.js"),
+      [
+        "export function analyzeJavaScriptLikeSourceAst() {",
+        "  return 'scanner';",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "core", "runtime.js"),
+      [
+        "export function ensureAtlasRuntime() {",
+        "  return 'runtime';",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "core", "execution-builder.js"),
+      [
+        "import { analyzeJavaScriptLikeSourceAst } from './scanner.js';",
+        "import { ensureAtlasRuntime } from './runtime.js';",
+        "export function buildExecutionRequest() {",
+        "  return [analyzeJavaScriptLikeSourceAst(), ensureAtlasRuntime()].join(':');",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "test", "scanner.test.js"),
+      [
+        "import { analyzeJavaScriptLikeSourceAst } from '../src/core/scanner.js';",
+        "export function scannerTestCase() {",
+        "  return analyzeJavaScriptLikeSourceAst();",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "test", "execution.test.js"),
+      [
+        "import { buildExecutionRequest } from '../src/core/execution-builder.js';",
+        "import { analyzeJavaScriptLikeSourceAst } from '../src/core/scanner.js';",
+        "import { ensureAtlasRuntime } from '../src/core/runtime.js';",
+        "export function executionTestCase() {",
+        "  return [buildExecutionRequest(), analyzeJavaScriptLikeSourceAst(), ensureAtlasRuntime()].join(':');",
+        "}"
+      ].join("\n")
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const impacted = selectImpactedTests(runtime.paths.dbFile, "typescript ast scanner method calls imported services", 5);
+    assert.equal(impacted.tests[0].path, "test/scanner.test.js");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

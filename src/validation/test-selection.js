@@ -69,7 +69,9 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
       covers: new Set()
     };
     const sourceScore = scoredFiles.find((file) => file.path === codePath)?.score || (seedPaths.includes(codePath) ? 3 : 1);
-    prior.score += sourceScore + 5;
+    prior.score += scoreCoverageContribution(prior.covers.size, sourceScore);
+    prior.score += scoreTestPathMatch(testPath, tokens);
+    prior.score += scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens);
     prior.covers.add(codePath);
     testScores.set(testPath, prior);
   }
@@ -77,7 +79,7 @@ export function selectImpactedTests(dbFile, query, limit = 10) {
   const tests = [...testScores.values()]
     .map((entry) => ({
       path: entry.path,
-      score: entry.score + (memoryBoosts.tests.get(entry.path) || 0),
+      score: entry.score + (memoryBoosts.tests.get(entry.path) || 0) - specificityPenalty(entry.covers.size),
       covers: [...entry.covers]
     }))
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
@@ -185,4 +187,56 @@ function buildMemoryBoosts(patterns) {
     tests,
     matchedPatternCount
   };
+}
+
+function scoreTestPathMatch(testPath, tokens) {
+  const pathValue = String(testPath || "").toLowerCase();
+  let score = 0;
+
+  for (const token of tokens) {
+    if (pathValue.includes(token)) {
+      score += 6;
+    }
+  }
+
+  return score;
+}
+
+function scoreDirectCoverageMatch(testPath, codePath, seedPaths, tokens) {
+  const normalizedTestStem = normalizeStem(testPath);
+  const normalizedCodeStem = normalizeStem(codePath);
+  let score = 0;
+
+  if (normalizedTestStem === normalizedCodeStem) {
+    score += 30;
+  }
+
+  const seeded = seedPaths.includes(codePath);
+  if (seeded && tokens.some((token) => normalizedCodeStem.includes(token))) {
+    score += 6;
+  }
+
+  return score;
+}
+
+function specificityPenalty(coverCount) {
+  return Math.max(0, Number(coverCount || 0) - 1) * 3;
+}
+
+function scoreCoverageContribution(existingCoverCount, sourceScore) {
+  const normalizedSourceScore = Number(sourceScore || 0);
+  if (existingCoverCount === 0) {
+    return normalizedSourceScore + 5;
+  }
+
+  return Math.max(1, Math.floor(normalizedSourceScore / 3)) + 1;
+}
+
+function normalizeStem(filePath) {
+  return String(filePath || "")
+    .toLowerCase()
+    .replace(/\\/g, "/")
+    .replace(/(^|\/)(test|tests|__tests__)\//g, "/")
+    .replace(/(\.|-)(test|spec)\.[^.]+$/g, "")
+    .replace(/\.[^.]+$/g, "");
 }

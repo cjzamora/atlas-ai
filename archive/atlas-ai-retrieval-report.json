@@ -30,14 +30,14 @@
           "test/openai-adapter.test.js"
         ],
         "topMatches": [
+          "test/openai-adapter.test.js",
+          "test/adapter-registry.test.js",
           "test/execution.test.js",
-          "test/prompt.test.js",
-          "test/context.test.js",
           "test/plan.test.js",
-          "test/openai-adapter.test.js"
+          "test/prompt.test.js"
         ],
         "hit": true,
-        "rank": 5
+        "rank": 1
       }
     },
     {
@@ -64,10 +64,10 @@
         ],
         "topMatches": [
           "test/patch.test.js",
-          "test/exec-run.test.js",
           "test/validation-run.test.js",
+          "test/exec-run.test.js",
           "test/execution.test.js",
-          "test/prompt.test.js"
+          "test/plan.test.js"
         ],
         "hit": true,
         "rank": 1
@@ -95,14 +95,14 @@
           "test/fix.test.js"
         ],
         "topMatches": [
-          "test/execution.test.js",
-          "test/prompt.test.js",
           "test/fix.test.js",
           "test/patch.test.js",
+          "test/execution.test.js",
+          "test/prompt.test.js",
           "test/context.test.js"
         ],
         "hit": true,
-        "rank": 3
+        "rank": 1
       }
     },
     {
@@ -128,14 +128,14 @@
           "test/retrieval-eval.test.js"
         ],
         "topMatches": [
+          "test/retrieval-eval.test.js",
           "test/execution.test.js",
           "test/prompt.test.js",
           "test/context.test.js",
-          "test/plan.test.js",
-          "test/retrieval-eval.test.js"
+          "test/plan.test.js"
         ],
         "hit": true,
-        "rank": 5
+        "rank": 1
       }
     },
     {
@@ -160,14 +160,14 @@
           "test/scanner.test.js"
         ],
         "topMatches": [
+          "test/scanner.test.js",
           "test/execution.test.js",
           "test/prompt.test.js",
           "test/context.test.js",
-          "test/plan.test.js",
-          "test/exec-run.test.js"
+          "test/plan.test.js"
         ],
-        "hit": false,
-        "rank": null
+        "hit": true,
+        "rank": 1
       }
     }
   ],
@@ -175,8 +175,8 @@
     "caseCount": 5,
     "limit": 5,
     "evidenceHitRate": 1,
-    "testHitRate": 0.8,
+    "testHitRate": 1,
     "evidenceAverageRank": 1,
-    "testAverageRank": 3.5
+    "testAverageRank": 1
   }
 }
