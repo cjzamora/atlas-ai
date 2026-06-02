@@ -18,10 +18,10 @@
         ],
         "topMatches": [
           "api/src/modules/auth/app-auth.service.ts",
-          "api/src/modules/app-integrations/app-integration.model.ts",
           "api/src/modules/apps/apps.service.ts",
-          "api/src/modules/app-integrations/dashboard-app-integrations.resolver.ts",
-          "api/src/modules/app-integrations/app-integrations.service.ts"
+          "api/src/modules/app-integrations/app-integrations.service.ts",
+          "api/src/modules/app-integrations/app-integration.model.ts",
+          "api/src/modules/app-integrations/dashboard-app-integrations.resolver.ts"
         ],
         "hit": true,
         "rank": 1
@@ -116,13 +116,13 @@
         ],
         "topMatches": [
           "api/src/modules/transfermate-bank-accounts/dashboard-transfermate-bank-account.resolver.ts",
+          "api/src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts",
           "api/src/modules/transfermate-bank-accounts/transfermate-bank-account.model.ts",
           "api/src/modules/transfermate-beneficiaries/dashboard-transfermate-beneficiary.resolver.ts",
-          "api/src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts",
-          "api/src/modules/transfermate-global-accounts/dashboard-transfermate-global-account.resolver.ts"
+          "api/src/modules/transfermate-bank-accounts/transfermate-bank-account.validation.ts"
         ],
         "hit": true,
-        "rank": 4
+        "rank": 2
       },
       "tests": {
         "expected": [
@@ -182,7 +182,7 @@
     "limit": 5,
     "evidenceHitRate": 1,
     "testHitRate": 1,
-    "evidenceAverageRank": 3,
+    "evidenceAverageRank": 2.6,
     "testAverageRank": 1.8
   }
 }

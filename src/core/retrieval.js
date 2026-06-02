@@ -144,6 +144,8 @@ function scoreRow(row, tokens, queryProfile, memoryBoosts) {
     }
   }
 
+  score += scoreImplementationRole(haystack.path, queryProfile);
+
   score += memoryBoosts.files.get(row.path) || 0;
 
   return {
@@ -174,9 +176,63 @@ function tokenize(query) {
 
 function profileQuery(tokens) {
   const prefersSourceFiles = tokens.some((token) => ["fix", "bug", "issue", "regression", "fallback"].includes(token));
+  const prefersServiceFiles = tokens.some((token) =>
+    ["service", "payments", "payment", "checkout", "charges", "charge"].includes(token)
+  );
+  const prefersValidationFiles = tokens.some((token) =>
+    ["validation", "validate", "validator", "account", "number", "country"].includes(token)
+  );
+  const prefersMapperFiles = tokens.some((token) =>
+    ["mapper", "mapping", "map", "sync", "transform"].includes(token)
+  );
   return {
-    prefersSourceFiles
+    prefersSourceFiles,
+    prefersServiceFiles,
+    prefersValidationFiles,
+    prefersMapperFiles
   };
+}
+
+function scoreImplementationRole(pathValue, queryProfile) {
+  let score = 0;
+
+  if (queryProfile.prefersServiceFiles) {
+    if (pathValue.endsWith(".service.ts") || pathValue.endsWith(".service.js")) {
+      score += 10;
+    }
+    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
+      score -= 4;
+    }
+    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
+      score -= 3;
+    }
+  }
+
+  if (queryProfile.prefersValidationFiles) {
+    if (pathValue.endsWith(".validation.ts") || pathValue.endsWith(".validation.js")) {
+      score += 12;
+    }
+    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
+      score -= 4;
+    }
+    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
+      score -= 3;
+    }
+  }
+
+  if (queryProfile.prefersMapperFiles) {
+    if (pathValue.endsWith(".mapper.ts") || pathValue.endsWith(".mapper.js")) {
+      score += 10;
+    }
+    if (pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js")) {
+      score -= 3;
+    }
+    if (pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js")) {
+      score -= 2;
+    }
+  }
+
+  return score;
 }
 
 function buildMemoryBoosts(patterns) {

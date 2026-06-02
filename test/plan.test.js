@@ -168,3 +168,106 @@ test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("retrieval ranking prefers service implementations over resolver wrappers for service-shaped queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-service-role-"));
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "stripe-connect"), { recursive: true });
+
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.service.ts"),
+      [
+        "export class StripeConnectService {",
+        "  listCharges() { return 'charges'; }",
+        "  startCheckoutSession() { return 'checkout'; }",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.resolver.ts"),
+      [
+        "import { StripeConnectService } from './stripe-connect.service';",
+        "export class StripeConnectResolver {",
+        "  constructor(private readonly stripeConnect: StripeConnectService) {}",
+        "  stripeConnectAccounts() { return this.stripeConnect.listCharges(); }",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "stripe-connect", "stripe-connect.model.ts"),
+      [
+        "export type StripeConnectAccountSummary = {",
+        "  accountId: string;",
+        "};"
+      ].join("\n")
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const evidence = searchEvidence(
+      runtime.paths.dbFile,
+      "stripe connect payments checkout connected account list charges",
+      5
+    );
+
+    assert.equal(evidence.matches[0].path, "src/modules/stripe-connect/stripe-connect.service.ts");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("retrieval ranking prefers validation files over dashboard resolver wrappers for validation-shaped queries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-validation-role-"));
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "transfermate-beneficiaries"), { recursive: true });
+
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "transfermate-beneficiary.validation.ts"),
+      [
+        "export function assertValidAccountNumber(countryCode, accountNumber) {",
+        "  return `${countryCode}:${accountNumber}`;",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "dashboard-transfermate-beneficiary.resolver.ts"),
+      [
+        "import { assertValidAccountNumber } from './transfermate-beneficiary.validation';",
+        "export class DashboardTransfermateBeneficiaryResolver {",
+        "  transfermateBeneficiariesForApp() {",
+        "    return assertValidAccountNumber('US', '123');",
+        "  }",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "modules", "transfermate-beneficiaries", "transfermate-beneficiary.model.ts"),
+      [
+        "export type TransfermateBeneficiary = {",
+        "  accountNumber: string;",
+        "};"
+      ].join("\n")
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const evidence = searchEvidence(
+      runtime.paths.dbFile,
+      "transfermate beneficiary validation account number country",
+      5
+    );
+
+    assert.equal(
+      evidence.matches[0].path,
+      "src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts"
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
