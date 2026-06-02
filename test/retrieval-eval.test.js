@@ -101,3 +101,56 @@ test("eval retrieval surfaces misses when expected files are not retrieved", asy
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("eval retrieval writes a report file and flags threshold failures", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-retrieval-report-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const specFile = path.join(tempRoot, "retrieval-threshold-spec.json");
+    const reportFile = path.join(tempRoot, "retrieval-report.json");
+    await fs.writeFile(
+      specFile,
+      JSON.stringify({
+        limit: 3,
+        cases: [
+          {
+            query: "pricing coupon discount",
+            expectedEvidence: ["src/controllers/does-not-exist.js"],
+            expectedTests: ["test/services/does-not-exist.test.js"]
+          }
+        ]
+      }, null, 2)
+    );
+
+    const result = await evalCommand({
+      args: ["retrieval"],
+      flags: {
+        root: workingRoot,
+        spec: specFile,
+        report: reportFile,
+        failUnder: "0.75"
+      }
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.threshold.failed, true);
+    assert.equal(result.threshold.minimumEvidenceHitRate, 0.75);
+    assert.equal(result.threshold.minimumTestHitRate, 0.75);
+    assert.equal(result.reportFile, reportFile);
+
+    const report = JSON.parse(await fs.readFile(reportFile, "utf8"));
+    assert.equal(report.command, "eval retrieval");
+    assert.equal(report.ok, false);
+    assert.equal(report.threshold.failed, true);
+    assert.equal(report.summary.evidenceHitRate, 0);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

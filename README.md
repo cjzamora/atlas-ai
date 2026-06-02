@@ -70,6 +70,7 @@ node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react
 node src/cli.js runs --command fix --status completed --root playgrounds/react-nest-demo
 node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
+node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json --report /tmp/retrieval-report.json --fail-under 0.8
 ```
 
 ## Manual Codex / Claude Round-Trip
@@ -177,12 +178,23 @@ Run it with:
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 ```
 
+Optional quality gate:
+
+```bash
+node src/cli.js eval retrieval \
+  --root /path/to/repo \
+  --spec /path/to/retrieval-spec.json \
+  --report /tmp/retrieval-report.json \
+  --fail-under 0.8
+```
+
 This reports:
 
 - evidence hit rate
 - impacted-test hit rate
 - average match rank
 - per-query misses that can justify future semantic retrieval work
+- optional pass/fail thresholding for real-repo baselines
 
 ## Scope of v0
 

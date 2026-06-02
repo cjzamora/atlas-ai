@@ -18,6 +18,10 @@ export async function loadRetrievalEvalSpec(specFile) {
   };
 }
 
+export async function writeRetrievalEvalReport(reportFile, report) {
+  await fs.writeFile(reportFile, JSON.stringify(report, null, 2));
+}
+
 export function evaluateRetrievalSpec(dbFile, spec) {
   const safeLimit = Math.max(1, Number(spec.limit || 5));
   const results = spec.cases.map((entry) => evaluateCase(dbFile, entry, safeLimit));
