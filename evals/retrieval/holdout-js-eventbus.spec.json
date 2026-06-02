@@ -1,0 +1,35 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "eventbus-pubsub",
+      "query": "subscribe publish event bus pubsub",
+      "expectedEvidence": ["src/event-bus.js"],
+      "expectedTests": ["test/event-bus.test.js"]
+    },
+    {
+      "id": "ttl-cache",
+      "query": "ttl cache get set evict",
+      "expectedEvidence": ["src/cache-store.js"],
+      "expectedTests": ["test/cache-store.test.js"]
+    },
+    {
+      "id": "throttle-debounce",
+      "query": "throttle debounce rate limit",
+      "expectedEvidence": ["src/throttle.js"],
+      "expectedTests": ["test/throttle.test.js"]
+    },
+    {
+      "id": "subscription-registry",
+      "query": "subscription handle registry",
+      "expectedEvidence": ["src/subscription.js"],
+      "expectedTests": ["test/subscription.test.js"]
+    },
+    {
+      "id": "event-logger",
+      "query": "log events through the bus",
+      "expectedEvidence": ["src/event-logger.js", "src/event-bus.js"],
+      "expectedTests": ["test/event-bus.test.js"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "eventbus",
+  "version": "1.0.0",
+  "description": "In-memory event bus with pub/sub, TTL caching, and throttling helpers",
+  "type": "module",
+  "main": "src/event-bus.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "eventbus",
+    "pubsub",
+    "cache",
+    "throttle"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,479 @@
+{
+  "ok": true,
+  "command": "eval retrieval",
+  "specFile": "evals/retrieval/holdout-js-eventbus.spec.json",
+  "threshold": {
+    "failed": false,
+    "minimumEvidenceHitRate": 1,
+    "minimumTestHitRate": 1,
+    "rankQualityFailed": false
+  },
+  "cases": [
+    {
+      "id": "eventbus-pubsub",
+      "query": "subscribe publish event bus pubsub",
+      "evidence": {
+        "expected": [
+          "src/event-bus.js"
+        ],
+        "topMatches": [
+          "src/event-bus.js",
+          "test/event-bus.test.js",
+          "src/event-logger.js",
+          "src/subscription.js",
+          "test/subscription.test.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/event-bus.test.js"
+        ],
+        "topMatches": [
+          "test/event-bus.test.js",
+          "test/subscription.test.js"
+        ],
+        "hit": true,
+        "rank": 1,
+        "diagnostics": {
+          "topMatches": [
+            {
+              "path": "test/event-bus.test.js",
+              "score": 155.32999999999998,
+              "covers": [
+                "src/event-bus.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/event-bus.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 40.56
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 46,
+                "pathMatch": 7.44,
+                "directCoverage": 101.89,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            },
+            {
+              "path": "test/subscription.test.js",
+              "score": 67,
+              "covers": [
+                "src/subscription.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/subscription.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 0.9
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 6,
+                "pathMatch": 0,
+                "directCoverage": 61,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            }
+          ]
+        }
+      },
+      "memoryAssistance": {
+        "matchedPatternCount": 0,
+        "ignoredPatternCount": 0,
+        "ignoredOutcomes": [],
+        "retrievalBoostApplied": false,
+        "testBoostApplied": false,
+        "boostedPaths": [],
+        "boostedTests": [],
+        "topEvidenceMemoryBoosted": false,
+        "topTestMemoryBoosted": false
+      },
+      "quality": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "id": "ttl-cache",
+      "query": "ttl cache get set evict",
+      "evidence": {
+        "expected": [
+          "src/cache-store.js"
+        ],
+        "topMatches": [
+          "src/cache-store.js",
+          "test/cache-store.test.js",
+          "src/throttle.js",
+          "test/throttle.test.js",
+          "package.json"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/cache-store.test.js"
+        ],
+        "topMatches": [
+          "test/cache-store.test.js",
+          "test/throttle.test.js"
+        ],
+        "hit": true,
+        "rank": 1,
+        "diagnostics": {
+          "topMatches": [
+            {
+              "path": "test/cache-store.test.js",
+              "score": 151.39,
+              "covers": [
+                "src/cache-store.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/cache-store.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 39.74
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 45,
+                "pathMatch": 7.8,
+                "directCoverage": 98.59,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            },
+            {
+              "path": "test/throttle.test.js",
+              "score": 97.73,
+              "covers": [
+                "src/throttle.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/throttle.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 8.67
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 14,
+                "pathMatch": 4.73,
+                "directCoverage": 79,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            }
+          ]
+        }
+      },
+      "memoryAssistance": {
+        "matchedPatternCount": 0,
+        "ignoredPatternCount": 0,
+        "ignoredOutcomes": [],
+        "retrievalBoostApplied": false,
+        "testBoostApplied": false,
+        "boostedPaths": [],
+        "boostedTests": [],
+        "topEvidenceMemoryBoosted": false,
+        "topTestMemoryBoosted": false
+      },
+      "quality": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "id": "throttle-debounce",
+      "query": "throttle debounce rate limit",
+      "evidence": {
+        "expected": [
+          "src/throttle.js"
+        ],
+        "topMatches": [
+          "src/throttle.js",
+          "test/throttle.test.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/throttle.test.js"
+        ],
+        "topMatches": [
+          "test/throttle.test.js"
+        ],
+        "hit": true,
+        "rank": 1,
+        "diagnostics": {
+          "topMatches": [
+            {
+              "path": "test/throttle.test.js",
+              "score": 140.39,
+              "covers": [
+                "src/throttle.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/throttle.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 28.91
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 34,
+                "pathMatch": 7.8,
+                "directCoverage": 98.59,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            }
+          ]
+        }
+      },
+      "memoryAssistance": {
+        "matchedPatternCount": 0,
+        "ignoredPatternCount": 0,
+        "ignoredOutcomes": [],
+        "retrievalBoostApplied": false,
+        "testBoostApplied": false,
+        "boostedPaths": [],
+        "boostedTests": [],
+        "topEvidenceMemoryBoosted": false,
+        "topTestMemoryBoosted": false
+      },
+      "quality": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "id": "subscription-registry",
+      "query": "subscription handle registry",
+      "evidence": {
+        "expected": [
+          "src/subscription.js"
+        ],
+        "topMatches": [
+          "src/subscription.js",
+          "test/subscription.test.js",
+          "src/event-bus.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/subscription.test.js"
+        ],
+        "topMatches": [
+          "test/subscription.test.js",
+          "test/event-bus.test.js"
+        ],
+        "hit": true,
+        "rank": 1,
+        "diagnostics": {
+          "topMatches": [
+            {
+              "path": "test/subscription.test.js",
+              "score": 127.21000000000001,
+              "covers": [
+                "src/subscription.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/subscription.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 20.61
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 26,
+                "pathMatch": 6.07,
+                "directCoverage": 95.14,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            },
+            {
+              "path": "test/event-bus.test.js",
+              "score": 70,
+              "covers": [
+                "src/event-bus.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/event-bus.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 4.05
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 9,
+                "pathMatch": 0,
+                "directCoverage": 61,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            }
+          ]
+        }
+      },
+      "memoryAssistance": {
+        "matchedPatternCount": 0,
+        "ignoredPatternCount": 0,
+        "ignoredOutcomes": [],
+        "retrievalBoostApplied": false,
+        "testBoostApplied": false,
+        "boostedPaths": [],
+        "boostedTests": [],
+        "topEvidenceMemoryBoosted": false,
+        "topTestMemoryBoosted": false
+      },
+      "quality": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "id": "event-logger",
+      "query": "log events through the bus",
+      "evidence": {
+        "expected": [
+          "src/event-logger.js",
+          "src/event-bus.js"
+        ],
+        "topMatches": [
+          "src/event-logger.js",
+          "src/event-bus.js",
+          "test/event-bus.test.js",
+          "src/subscription.js",
+          "src/throttle.js"
+        ],
+        "hit": true,
+        "rank": 1
+      },
+      "tests": {
+        "expected": [
+          "test/event-bus.test.js"
+        ],
+        "topMatches": [
+          "test/event-bus.test.js",
+          "test/throttle.test.js",
+          "test/subscription.test.js"
+        ],
+        "hit": true,
+        "rank": 1,
+        "diagnostics": {
+          "topMatches": [
+            {
+              "path": "test/event-bus.test.js",
+              "score": 114.19,
+              "covers": [
+                "src/event-bus.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/event-bus.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 11.83
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 17,
+                "pathMatch": 4.73,
+                "directCoverage": 92.46,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            },
+            {
+              "path": "test/throttle.test.js",
+              "score": 69,
+              "covers": [
+                "src/throttle.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/throttle.js",
+                  "seed": true,
+                  "graphDistance": 0,
+                  "sourceScore": 2.6
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 8,
+                "pathMatch": 0,
+                "directCoverage": 61,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            },
+            {
+              "path": "test/subscription.test.js",
+              "score": 50,
+              "covers": [
+                "src/subscription.js"
+              ],
+              "coverDetails": [
+                {
+                  "path": "src/subscription.js",
+                  "seed": false,
+                  "graphDistance": 1,
+                  "sourceScore": 1
+                }
+              ],
+              "scoreBreakdown": {
+                "coverageContribution": 1,
+                "pathMatch": 0,
+                "directCoverage": 49,
+                "memoryBoost": 0,
+                "specificityPenalty": 0
+              }
+            }
+          ]
+        }
+      },
+      "memoryAssistance": {
+        "matchedPatternCount": 0,
+        "ignoredPatternCount": 0,
+        "ignoredOutcomes": [],
+        "retrievalBoostApplied": false,
+        "testBoostApplied": false,
+        "boostedPaths": [],
+        "boostedTests": [],
+        "topEvidenceMemoryBoosted": false,
+        "topTestMemoryBoosted": false
+      },
+      "quality": {
+        "passed": true,
+        "failures": []
+      }
+    }
+  ],
+  "summary": {
+    "caseCount": 5,
+    "limit": 5,
+    "evidenceHitRate": 1,
+    "testHitRate": 1,
+    "evidenceAverageRank": 1,
+    "testAverageRank": 1,
+    "rankQualityFailureCount": 0,
+    "rankQualityPassed": true
+  }
+}

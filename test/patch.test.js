@@ -16,12 +16,12 @@ test("parsePatchResponse extracts fenced diffs and preserves raw output", () => 
     "Here is the change:",
     "",
     "```diff",
-    "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-    "--- a/src/services/pricing.js",
-    "+++ b/src/services/pricing.js",
+    "diff --git a/src/services/metering.js b/src/services/metering.js",
+    "--- a/src/services/metering.js",
+    "+++ b/src/services/metering.js",
     "@@ -1,3 +1,3 @@",
-    "-const discount = coupon.value;",
-    "+const discount = Math.min(coupon.value, subtotal);",
+    "-const tally = ticket.value;",
+    "+const tally = Math.min(ticket.value, baseline);",
     "```",
     "",
     "Run npm test."
@@ -37,7 +37,7 @@ test("parsePatchResponse extracts fenced diffs and preserves raw output", () => 
 });
 
 test("parsePatchResponse keeps unstructured responses as raw artifacts", () => {
-  const rawOutput = "I would update pricing validation, but no patch is included.";
+  const rawOutput = "I would update metering validation, but no patch is included.";
   const parsed = parsePatchResponse(rawOutput);
 
   assert.equal(parsed.rawOutput, rawOutput);
@@ -67,12 +67,12 @@ test("patch stage writes a review-only artifact and patch show returns it", asyn
         status: "completed",
         output_text: [
           "```diff",
-          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-          "--- a/src/services/pricing.js",
-          "+++ b/src/services/pricing.js",
+          "diff --git a/src/services/metering.js b/src/services/metering.js",
+          "--- a/src/services/metering.js",
+          "+++ b/src/services/metering.js",
           "@@ -1,3 +1,3 @@",
-          "-const total = subtotal - discount;",
-          "+const total = Math.max(0, subtotal - discount);",
+          "-const total = baseline - tally;",
+          "+const total = Math.max(0, baseline - tally);",
           "```"
         ].join("\n"),
         usage: {
@@ -84,7 +84,7 @@ test("patch stage writes a review-only artifact and patch show returns it", asyn
     });
 
     const staged = await patchCommand({
-      args: ["stage", "fix pricing discount underflow"],
+      args: ["stage", "fix metering tally underflow"],
       flags: { root: workingRoot, provider: "openai", model: "codex", limit: 5 }
     });
 
@@ -136,7 +136,7 @@ test("patch stage persists matched memory hints and assistance metadata on the a
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -146,14 +146,14 @@ test("patch stage persists matched memory hints and assistance metadata on the a
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -173,12 +173,12 @@ test("patch stage persists matched memory hints and assistance metadata on the a
         status: "completed",
         output_text: [
           "```diff",
-          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-          "--- a/src/services/pricing.js",
-          "+++ b/src/services/pricing.js",
+          "diff --git a/src/services/metering.js b/src/services/metering.js",
+          "--- a/src/services/metering.js",
+          "+++ b/src/services/metering.js",
           "@@ -1,3 +1,3 @@",
-          "-const total = subtotal - discount;",
-          "+const total = Math.max(0, subtotal - discount);",
+          "-const total = baseline - tally;",
+          "+const total = Math.max(0, baseline - tally);",
           "```"
         ].join("\n"),
         usage: {
@@ -246,12 +246,12 @@ test("patch stage retries transient provider failures and succeeds on a later at
           status: "completed",
           output_text: [
             "```diff",
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,3 +1,3 @@",
-            "-const total = subtotal - discount;",
-            "+const total = Math.max(0, subtotal - discount);",
+            "-const total = baseline - tally;",
+            "+const total = Math.max(0, baseline - tally);",
             "```"
           ].join("\n"),
           usage: {
@@ -264,7 +264,7 @@ test("patch stage retries transient provider failures and succeeds on a later at
     };
 
     const staged = await patchCommand({
-      args: ["stage", "fix pricing discount underflow"],
+      args: ["stage", "fix metering tally underflow"],
       flags: { root: workingRoot, provider: "openai", model: "gpt-5.4", limit: 5 }
     });
 
@@ -296,7 +296,7 @@ test("patch apply writes validated unified diffs to disk and marks the artifact 
       id: "patch-validated-apply",
       type: "patch",
       reviewOnly: true,
-      task: "apply pricing discount clamp",
+      task: "apply metering tally clamp",
       status: "validated",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
@@ -305,23 +305,23 @@ test("patch apply writes validated unified diffs to disk and marks the artifact 
           kind: "diff",
           language: "diff",
           diff: [
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,6 +1,6 @@",
-            " export function calculateDiscount(coupon, subtotal) {",
-            "   if (!coupon || coupon.expired) {",
+            " export function calculateTally(ticket, baseline) {",
+            "   if (!ticket || ticket.stale) {",
             "     return 0;",
             "   }",
             " ",
-            "-  return Math.min(subtotal, coupon.amountOff || 0);",
-            "+  return Math.min(subtotal, coupon.amountOff);",
+            "-  return Math.min(baseline, ticket.ceiling || 0);",
+            "+  return Math.min(baseline, ticket.ceiling);",
             " }"
           ].join("\n")
         }
       ],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: {
         status: "passed",
@@ -345,16 +345,16 @@ test("patch apply writes validated unified diffs to disk and marks the artifact 
     assert.equal(applied.ok, true);
     assert.equal(applied.command, "patch apply");
     assert.equal(applied.status, "applied");
-    assert.deepEqual(applied.changedFiles, ["src/services/pricing.js"]);
+    assert.deepEqual(applied.changedFiles, ["src/services/metering.js"]);
 
-    const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
-    assert.match(updatedSource, /Math\.min\(subtotal, coupon\.amountOff\)/);
+    const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
+    assert.match(updatedSource, /Math\.min\(baseline, ticket\.ceiling\)/);
 
     const stored = JSON.parse(
       await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
     );
     assert.equal(stored.status, "applied");
-    assert.deepEqual(stored.appliedFiles, ["src/services/pricing.js"]);
+    assert.deepEqual(stored.appliedFiles, ["src/services/metering.js"]);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -381,23 +381,23 @@ test("patch apply rejects artifacts that have not passed validation", async () =
           kind: "diff",
           language: "diff",
           diff: [
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,6 +1,6 @@",
-            " export function calculateDiscount(coupon, subtotal) {",
-            "   if (!coupon || coupon.expired) {",
+            " export function calculateTally(ticket, baseline) {",
+            "   if (!ticket || ticket.stale) {",
             "     return 0;",
             "   }",
             " ",
-            "-  return Math.min(subtotal, coupon.amountOff || 0);",
-            "+  return Math.min(subtotal, coupon.amountOff);",
+            "-  return Math.min(baseline, ticket.ceiling || 0);",
+            "+  return Math.min(baseline, ticket.ceiling);",
             " }"
           ].join("\n")
         }
       ],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: null
     };
@@ -431,15 +431,15 @@ test("patch confirm reruns selected tests after apply and marks the artifact as 
       id: "patch-confirmed-apply",
       type: "patch",
       reviewOnly: true,
-      task: "confirm applied pricing patch",
+      task: "confirm applied metering patch",
       status: "applied",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
       patches: [],
       rawOutput: "",
       selectedTests: [
-        "test/services/pricing.test.js",
-        "test/services/checkout.test.js"
+        "test/services/metering.test.js",
+        "test/services/intake.test.js"
       ],
       files: [],
       validation: {
@@ -450,7 +450,7 @@ test("patch confirm reruns selected tests after apply and marks the artifact as 
         results: []
       },
       appliedAt: new Date().toISOString(),
-      appliedFiles: ["src/services/pricing.js"]
+      appliedFiles: ["src/services/metering.js"]
     };
 
     await fs.writeFile(
@@ -488,10 +488,10 @@ test("patch confirm marks the artifact when post-apply validation fails", async 
     await fs.cp(fixtureRoot, workingRoot, { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "test/services/pricing.test.js"),
+      path.join(workingRoot, "test/services/metering.test.js"),
       [
-        "export function pricingTestCase() {",
-        "  throw new Error('pricing regression');",
+        "export function meteringTestCase() {",
+        "  throw new Error('metering regression');",
         "}"
       ].join("\n")
     );
@@ -507,7 +507,7 @@ test("patch confirm marks the artifact when post-apply validation fails", async 
       parseStatus: "parsed",
       patches: [],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: {
         status: "passed",
@@ -517,7 +517,7 @@ test("patch confirm marks the artifact when post-apply validation fails", async 
         results: []
       },
       appliedAt: new Date().toISOString(),
-      appliedFiles: ["src/services/pricing.js"]
+      appliedFiles: ["src/services/metering.js"]
     };
 
     await fs.writeFile(
@@ -535,15 +535,15 @@ test("patch confirm marks the artifact when post-apply validation fails", async 
     assert.equal(confirmed.status, "apply_failed_validation");
     assert.equal(confirmed.postApplyValidation.status, "failed");
     assert.equal(confirmed.postApplyValidation.summary.failed, 1);
-    assert.equal(confirmed.postApplyValidation.failureReason, "pricing regression");
-    assert.equal(confirmed.failureReason, "pricing regression");
+    assert.equal(confirmed.postApplyValidation.failureReason, "metering regression");
+    assert.equal(confirmed.failureReason, "metering regression");
 
     const stored = JSON.parse(
       await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
     );
     assert.equal(stored.status, "apply_failed_validation");
     assert.equal(stored.postApplyValidation.status, "failed");
-    assert.equal(stored.postApplyValidation.failureReason, "pricing regression");
+    assert.equal(stored.postApplyValidation.failureReason, "metering regression");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -557,12 +557,12 @@ test("patch apply stores file snapshots that patch rollback can restore", async 
     await fs.cp(fixtureRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
-    const originalSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    const originalSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
     const artifact = {
       id: "patch-rollback-success",
       type: "patch",
       reviewOnly: true,
-      task: "rollback pricing patch",
+      task: "rollback metering patch",
       status: "validated",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
@@ -571,23 +571,23 @@ test("patch apply stores file snapshots that patch rollback can restore", async 
           kind: "diff",
           language: "diff",
           diff: [
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,6 +1,6 @@",
-            " export function calculateDiscount(coupon, subtotal) {",
-            "   if (!coupon || coupon.expired) {",
+            " export function calculateTally(ticket, baseline) {",
+            "   if (!ticket || ticket.stale) {",
             "     return 0;",
             "   }",
             " ",
-            "-  return Math.min(subtotal, coupon.amountOff || 0);",
-            "+  return Math.min(subtotal, coupon.amountOff);",
+            "-  return Math.min(baseline, ticket.ceiling || 0);",
+            "+  return Math.min(baseline, ticket.ceiling);",
             " }"
           ].join("\n")
         }
       ],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: {
         status: "passed",
@@ -614,7 +614,7 @@ test("patch apply stores file snapshots that patch rollback can restore", async 
 
     assert.equal(applied.status, "applied");
     assert.equal(applied.artifact.fileSnapshots.length, 1);
-    assert.equal(applied.artifact.fileSnapshots[0].path, "src/services/pricing.js");
+    assert.equal(applied.artifact.fileSnapshots[0].path, "src/services/metering.js");
     assert.equal(applied.artifact.fileSnapshots[0].before, originalSource);
 
     const rolledBack = await patchCommand({
@@ -625,9 +625,9 @@ test("patch apply stores file snapshots that patch rollback can restore", async 
     assert.equal(rolledBack.ok, true);
     assert.equal(rolledBack.command, "patch rollback");
     assert.equal(rolledBack.status, "rolled_back");
-    assert.deepEqual(rolledBack.changedFiles, ["src/services/pricing.js"]);
+    assert.deepEqual(rolledBack.changedFiles, ["src/services/metering.js"]);
 
-    const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
     assert.equal(restoredSource, originalSource);
 
     const stored = JSON.parse(
@@ -635,7 +635,7 @@ test("patch apply stores file snapshots that patch rollback can restore", async 
     );
     assert.equal(stored.status, "rolled_back");
     assert.ok(stored.rolledBackAt);
-    assert.deepEqual(stored.rolledBackFiles, ["src/services/pricing.js"]);
+    assert.deepEqual(stored.rolledBackFiles, ["src/services/metering.js"]);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -703,7 +703,7 @@ test("patch apply --confirm applies the patch and marks the artifact confirmed w
       id: "patch-apply-confirm-success",
       type: "patch",
       reviewOnly: true,
-      task: "apply and confirm pricing patch",
+      task: "apply and confirm metering patch",
       status: "validated",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
@@ -712,23 +712,23 @@ test("patch apply --confirm applies the patch and marks the artifact confirmed w
           kind: "diff",
           language: "diff",
           diff: [
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,6 +1,6 @@",
-            " export function calculateDiscount(coupon, subtotal) {",
-            "   if (!coupon || coupon.expired) {",
+            " export function calculateTally(ticket, baseline) {",
+            "   if (!ticket || ticket.stale) {",
             "     return 0;",
             "   }",
             " ",
-            "-  return Math.min(subtotal, coupon.amountOff || 0);",
-            "+  return Math.min(subtotal, coupon.amountOff);",
+            "-  return Math.min(baseline, ticket.ceiling || 0);",
+            "+  return Math.min(baseline, ticket.ceiling);",
             " }"
           ].join("\n")
         }
       ],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: {
         status: "passed",
@@ -781,10 +781,10 @@ test("patch apply --confirm returns a failed-validation status when confirmation
     await fs.cp(fixtureRoot, workingRoot, { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "test/services/pricing.test.js"),
+      path.join(workingRoot, "test/services/metering.test.js"),
       [
-        "export function pricingTestCase() {",
-        "  throw new Error('pricing regression');",
+        "export function meteringTestCase() {",
+        "  throw new Error('metering regression');",
         "}"
       ].join("\n")
     );
@@ -803,23 +803,23 @@ test("patch apply --confirm returns a failed-validation status when confirmation
           kind: "diff",
           language: "diff",
           diff: [
-            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-            "--- a/src/services/pricing.js",
-            "+++ b/src/services/pricing.js",
+            "diff --git a/src/services/metering.js b/src/services/metering.js",
+            "--- a/src/services/metering.js",
+            "+++ b/src/services/metering.js",
             "@@ -1,6 +1,6 @@",
-            " export function calculateDiscount(coupon, subtotal) {",
-            "   if (!coupon || coupon.expired) {",
+            " export function calculateTally(ticket, baseline) {",
+            "   if (!ticket || ticket.stale) {",
             "     return 0;",
             "   }",
             " ",
-            "-  return Math.min(subtotal, coupon.amountOff || 0);",
-            "+  return Math.min(subtotal, coupon.amountOff);",
+            "-  return Math.min(baseline, ticket.ceiling || 0);",
+            "+  return Math.min(baseline, ticket.ceiling);",
             " }"
           ].join("\n")
         }
       ],
       rawOutput: "",
-      selectedTests: ["test/services/pricing.test.js"],
+      selectedTests: ["test/services/metering.test.js"],
       files: [],
       validation: {
         status: "passed",

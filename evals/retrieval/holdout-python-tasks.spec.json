@@ -1,0 +1,35 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "binary-heap-priority-queue",
+      "query": "binary heap priority queue push pop peek",
+      "expectedEvidence": ["taskflow/priority_queue.py"],
+      "expectedTests": ["tests/test_priority_queue.py"]
+    },
+    {
+      "id": "retry-backoff-policy",
+      "query": "retry backoff attempts exponential policy",
+      "expectedEvidence": ["taskflow/retry_policy.py"],
+      "expectedTests": ["tests/test_retry_policy.py"]
+    },
+    {
+      "id": "schedule-by-priority-and-time",
+      "query": "schedule task by priority and ready time",
+      "expectedEvidence": ["taskflow/scheduler.py"],
+      "expectedTests": ["tests/test_scheduler.py"]
+    },
+    {
+      "id": "worker-pulls-and-executes",
+      "query": "worker pulls and executes tasks from scheduler",
+      "expectedEvidence": ["taskflow/worker.py"],
+      "expectedTests": ["tests/test_worker.py"]
+    },
+    {
+      "id": "clock-time-abstraction",
+      "query": "clock time abstraction monotonic now sleep",
+      "expectedEvidence": ["taskflow/clock.py"],
+      "expectedTests": ["tests/test_scheduler.py"]
+    }
+  ]
+}

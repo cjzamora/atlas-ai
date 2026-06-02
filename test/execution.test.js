@@ -25,7 +25,7 @@ test("execution builder packages a model-ready request artifact", async () => {
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const task = "fix pricing coupon discount bug";
+    const task = "fix metering ticket tally bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -50,8 +50,8 @@ test("execution builder packages a model-ready request artifact", async () => {
     assert.equal(request.provider, "openai");
     assert.equal(request.model, "codex");
     assert.ok(request.requestId);
-    assert.ok(request.context.selectedTests.includes("test/services/pricing.test.js"));
-    assert.ok(request.context.files.some((file) => file.path === "src/services/pricing.js"));
+    assert.ok(request.context.selectedTests.includes("test/services/metering.test.js"));
+    assert.ok(request.context.files.some((file) => file.path === "src/services/metering.js"));
     assert.match(request.input.promptText, /Atlas Execution Prompt/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -70,7 +70,7 @@ test("execution builder carries advisory memory hints into the request artifact"
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -80,14 +80,14 @@ test("execution builder carries advisory memory hints into the request artifact"
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -98,7 +98,7 @@ test("execution builder carries advisory memory hints into the request artifact"
       }
     });
 
-    const task = "fix pricing fallback bug";
+    const task = "fix metering fallback bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -123,8 +123,8 @@ test("execution builder carries advisory memory hints into the request artifact"
 
     assert.equal(request.context.memoryHints.length, 1);
     assert.equal(request.context.memoryHints[0].outcome, "confirmed");
-    assert.ok(request.context.memoryHints[0].files.includes("src/services/pricing.js"));
-    assert.ok(request.context.memoryHints[0].tests.includes("test/services/pricing.test.js"));
+    assert.ok(request.context.memoryHints[0].files.includes("src/services/metering.js"));
+    assert.ok(request.context.memoryHints[0].tests.includes("test/services/metering.test.js"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

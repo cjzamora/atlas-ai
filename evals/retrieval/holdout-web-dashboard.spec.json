@@ -1,0 +1,31 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "card-button-styles",
+      "query": "card button styles padding",
+      "expectedEvidence": ["styles/main.css"]
+    },
+    {
+      "id": "base-container-reset",
+      "query": "container reset base list spacing",
+      "expectedEvidence": ["styles/base.css"]
+    },
+    {
+      "id": "page-links-script-stylesheet",
+      "query": "dashboard page links stylesheet and script sidebar",
+      "expectedEvidence": ["index.html"]
+    },
+    {
+      "id": "widget-render-module",
+      "query": "render card button widget module",
+      "expectedEvidence": ["scripts/widget.js"],
+      "expectedTests": ["scripts/widget.test.js"]
+    },
+    {
+      "id": "theme-elevated-mixin",
+      "query": "elevated mixin box shadow theme",
+      "expectedEvidence": ["styles/theme.scss"]
+    }
+  ]
+}

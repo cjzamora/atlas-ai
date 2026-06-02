@@ -1,13 +1,37 @@
 import { querySql } from "./sqlite.js";
 import { findRelevantRunPatterns } from "./store.js";
 
+// General, domain-agnostic scoring weights.
+//
+// There is deliberately NO domain vocabulary and NO filename-convention table here.
+// Relevance is derived from the repository itself:
+//   - lexical token overlap (path / summary / symbols / graph-neighbour names),
+//     each weighted by the token's inverse document frequency (IDF) across the
+//     indexed corpus, so a repo's own rare, discriminative terms dominate and
+//     ubiquitous terms decay toward zero;
+//   - structural centrality (how many files import or test a file), a repo-derived
+//     proxy for "this file holds shared implementation" that needs no naming rules.
+const WEIGHTS = {
+  pathToken: 8,
+  symbolToken: 6,
+  summaryToken: 2,
+  importNeighborToken: 3,
+  callSpecifierToken: 2,
+  callTargetToken: 3,
+  testNeighborToken: 4,
+  centralityMax: 10,
+  centralityScale: 4,
+  // evidence retrieval surfaces implementation; tests are surfaced separately, so
+  // apply a small structural (not domain) de-prioritisation to test files.
+  nonTestEvidenceBias: -3
+};
+
 export function searchEvidence(dbFile, query, limit) {
   const safeLimit = Number.isFinite(limit) ? limit : 5;
   const tokens = tokenize(query);
   if (tokens.length === 0) {
     return { matches: [] };
   }
-  const queryProfile = profileQuery(tokens);
   const memoryBoosts = buildMemoryBoosts(findRelevantRunPatterns(dbFile, query, 3));
 
   const rows = querySql(
@@ -33,8 +57,10 @@ export function searchEvidence(dbFile, query, limit) {
     `
   );
 
+  const idf = computeIdf(rows, tokens);
+
   const matches = rows
-    .map((row) => scoreRow(row, tokens, queryProfile, memoryBoosts))
+    .map((row) => scoreRow(row, tokens, idf, memoryBoosts))
     .filter((row) => row.score > 0)
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
     .slice(0, Math.max(1, safeLimit));
@@ -51,7 +77,31 @@ export function searchEvidence(dbFile, query, limit) {
   };
 }
 
-function scoreRow(row, tokens, queryProfile, memoryBoosts) {
+// Inverse document frequency for each query token over the indexed corpus.
+// Tokens that appear in every file carry ~0 weight (floored small); tokens that
+// appear in few files carry the most weight. This is what replaces the old
+// hardcoded "this word means a service/guard/mapper" vocabulary.
+function computeIdf(rows, tokens) {
+  const total = rows.length || 1;
+  const idf = new Map();
+  for (const token of tokens) {
+    let documentFrequency = 0;
+    for (const row of rows) {
+      if (rowSearchText(row).includes(token)) {
+        documentFrequency += 1;
+      }
+    }
+    const weight = Math.log((total + 1) / (documentFrequency + 1));
+    idf.set(token, Math.max(0.2, weight));
+  }
+  return idf;
+}
+
+function rowSearchText(row) {
+  return `${row.path || ""} ${row.summary || ""} ${row.symbols || ""}`.toLowerCase();
+}
+
+function scoreRow(row, tokens, idf, memoryBoosts) {
   const haystack = {
     path: String(row.path || "").toLowerCase(),
     summary: String(row.summary || "").toLowerCase(),
@@ -78,76 +128,76 @@ function scoreRow(row, tokens, queryProfile, memoryBoosts) {
       .filter(Boolean)
   };
 
-  let score = 0;
+  let lexical = 0;
   const matchedSymbols = [];
 
   for (const token of tokens) {
+    const weight = idf.get(token) || 0.2;
+
     if (haystack.path.includes(token)) {
-      score += 5;
+      lexical += WEIGHTS.pathToken * weight;
     }
     if (haystack.summary.includes(token)) {
-      score += 2;
+      lexical += WEIGHTS.summaryToken * weight;
     }
 
     for (const symbol of haystack.symbols) {
       if (symbol.toLowerCase().includes(token)) {
-        score += 4;
+        lexical += WEIGHTS.symbolToken * weight;
         matchedSymbols.push(symbol);
       }
     }
 
     for (const target of haystack.outgoingTargets) {
       if (target.toLowerCase().includes(token)) {
-        score += 3;
+        lexical += WEIGHTS.importNeighborToken * weight;
       }
     }
 
     for (const source of haystack.incomingSources) {
       if (source.toLowerCase().includes(token)) {
-        score += 3;
+        lexical += WEIGHTS.importNeighborToken * weight;
       }
     }
 
     for (const call of haystack.outgoingCalls) {
       if (call.toLowerCase().includes(token)) {
-        score += 2;
+        lexical += WEIGHTS.callSpecifierToken * weight;
       }
     }
 
     for (const callTarget of haystack.outgoingCallTargets) {
       if (callTarget.toLowerCase().includes(token)) {
-        score += 3;
+        lexical += WEIGHTS.callTargetToken * weight;
       }
     }
 
     for (const testTarget of haystack.testTargets) {
       if (testTarget.toLowerCase().includes(token)) {
-        score += 4;
+        lexical += WEIGHTS.testNeighborToken * weight;
       }
     }
 
     for (const testedBy of haystack.testedBySources) {
       if (testedBy.toLowerCase().includes(token)) {
-        score += 4;
+        lexical += WEIGHTS.testNeighborToken * weight;
       }
     }
   }
 
-  if (queryProfile.prefersSourceFiles) {
-    const isTestFile = /(^|\/)(test|tests)\//.test(haystack.path) || /\.test\./.test(haystack.path);
-    const isSourceFile = /(^|\/)src\//.test(haystack.path);
-    if (isTestFile) {
-      score -= 6;
-    } else {
-      score += 2;
-    }
-    if (isSourceFile) {
-      score += 3;
+  let score = lexical;
+
+  if (lexical > 0) {
+    // Structural centrality: files that many others import or that have tests are
+    // more likely to be the implementation a query is about. Derived from the
+    // graph, so it carries no language or domain assumptions.
+    const fanIn = haystack.incomingSources.length + haystack.testedBySources.length;
+    score += Math.min(WEIGHTS.centralityMax, Math.log2(1 + fanIn) * WEIGHTS.centralityScale);
+
+    if (isTestPath(haystack.path)) {
+      score += WEIGHTS.nonTestEvidenceBias;
     }
   }
-
-  score += scoreImplementationRole(haystack.path, queryProfile);
-  score += scoreModuleAnchor(haystack.path, queryProfile);
 
   score += memoryBoosts.files.get(row.path) || 0;
 
@@ -156,7 +206,7 @@ function scoreRow(row, tokens, queryProfile, memoryBoosts) {
     language: row.language,
     summary: row.summary,
     symbol: matchedSymbols[0],
-    score,
+    score: Math.round(score * 100) / 100,
     relatedPaths: [...new Set([
       ...haystack.outgoingTargets,
       ...haystack.incomingSources,
@@ -177,225 +227,17 @@ function tokenize(query) {
     .filter((token) => token.length >= 3);
 }
 
-function profileQuery(tokens) {
-  const prefersSourceFiles = tokens.some((token) => ["fix", "bug", "issue", "regression", "fallback"].includes(token));
-  const prefersServiceFiles = tokens.some((token) =>
-    ["service", "payments", "payment", "checkout", "charges", "charge"].includes(token)
-  );
-  const prefersValidationFiles = tokens.some((token) =>
-    ["validation", "validate", "validator", "account", "number", "country"].includes(token)
-  );
-  const prefersMapperFiles = tokens.some((token) =>
-    ["mapper", "mapping", "map", "sync", "transform"].includes(token)
-  );
-  const prefersQueueFiles = tokens.some((token) =>
-    ["queue", "retry", "delivery", "enqueue"].includes(token)
-  );
-  const prefersInngestFiles = tokens.some((token) =>
-    ["inngest", "worker", "job", "trigger"].includes(token)
-  );
-  const prefersGuardFiles = tokens.some((token) =>
-    ["guard", "auth", "authorize", "permission"].includes(token)
-  );
-  const prefersControllerFiles = tokens.some((token) =>
-    ["controller", "signature", "hmac", "raw", "received"].includes(token)
-  );
-  return {
-    prefersSourceFiles,
-    prefersServiceFiles,
-    prefersValidationFiles,
-    prefersMapperFiles,
-    prefersQueueFiles,
-    prefersInngestFiles,
-    prefersGuardFiles,
-    prefersControllerFiles,
-    anchorTokens: entityAnchorTokens(tokens)
-  };
-}
-
-function scoreImplementationRole(pathValue, queryProfile) {
-  let score = 0;
-  const isServiceFile = pathValue.endsWith(".service.ts") || pathValue.endsWith(".service.js");
-  const isResolverFile = pathValue.endsWith(".resolver.ts") || pathValue.endsWith(".resolver.js");
-  const isControllerFile = pathValue.endsWith(".controller.ts") || pathValue.endsWith(".controller.js");
-  const isModelFile = pathValue.endsWith(".model.ts") || pathValue.endsWith(".model.js");
-  const isValidationFile = pathValue.endsWith(".validation.ts") || pathValue.endsWith(".validation.js");
-  const isMapperFile = pathValue.endsWith(".mapper.ts") || pathValue.endsWith(".mapper.js");
-  const isQueueFile = /queue\.service\.(ts|js)$/.test(pathValue);
-  const isInngestFile = pathValue.endsWith(".inngest.ts") || pathValue.endsWith(".inngest.js");
-  const isGuardFile = pathValue.endsWith(".guard.ts") || pathValue.endsWith(".guard.js");
-  const isDashboardWrapper = /(^|\/)dashboard-/.test(pathValue);
-
-  if (queryProfile.prefersServiceFiles) {
-    if (isServiceFile) {
-      score += 30;
-    }
-    if (isResolverFile) {
-      score -= 35;
-    }
-    if (isModelFile) {
-      score -= 75;
-    }
+// Recognises test files across languages and conventions (JS/TS `.test`/`.spec`,
+// Python `test_` prefix, Go/Ruby `_test`/`_spec` suffix, Java/Go `Test`/`Spec`
+// PascalCase, and `test`/`tests`/`__tests__`/`spec`/`specs` directories) without
+// encoding any domain knowledge.
+function isTestPath(filePath) {
+  const normalizedPath = String(filePath || "").toLowerCase().replace(/\\/g, "/");
+  if (/(^|\/)(tests?|__tests__|specs?)\//.test(normalizedPath)) {
+    return true;
   }
-
-  if (queryProfile.prefersValidationFiles) {
-    if (isValidationFile) {
-      score += 12;
-    }
-    if (isResolverFile) {
-      score -= 4;
-    }
-    if (isModelFile) {
-      score -= 3;
-    }
-  }
-
-  if (queryProfile.prefersMapperFiles) {
-    if (isMapperFile) {
-      score += 30;
-    }
-    if (isResolverFile) {
-      score -= 4;
-    }
-    if (isModelFile) {
-      score -= 3;
-    }
-    if (isServiceFile) {
-      score -= 2;
-    }
-  }
-
-  if (queryProfile.prefersQueueFiles) {
-    if (isQueueFile) {
-      score += 16;
-    } else if (isServiceFile) {
-      score += 4;
-    }
-    if (isResolverFile) {
-      score -= 4;
-    }
-  }
-
-  if (queryProfile.prefersControllerFiles) {
-    if (isControllerFile) {
-      score += 70;
-    }
-    if (isResolverFile) {
-      score -= 20;
-    }
-    if (isModelFile) {
-      score -= 40;
-    }
-  }
-
-  if (queryProfile.prefersInngestFiles) {
-    if (isInngestFile) {
-      score += 12;
-    }
-    if (isResolverFile) {
-      score -= 3;
-    }
-  }
-
-  if (queryProfile.prefersGuardFiles) {
-    if (isGuardFile) {
-      score += 10;
-    } else if (isServiceFile) {
-      score += 4;
-    }
-    if (isResolverFile) {
-      score -= 3;
-    }
-  }
-
-  if (
-    queryProfile.prefersServiceFiles ||
-    queryProfile.prefersValidationFiles ||
-    queryProfile.prefersMapperFiles ||
-    queryProfile.prefersQueueFiles ||
-    queryProfile.prefersInngestFiles ||
-    queryProfile.prefersGuardFiles ||
-    queryProfile.prefersControllerFiles
-  ) {
-    if (isDashboardWrapper) {
-      score -= 5;
-    }
-  }
-
-  return score;
-}
-
-function scoreModuleAnchor(pathValue, queryProfile) {
-  const anchors = queryProfile.anchorTokens || [];
-  if (anchors.length === 0) {
-    return 0;
-  }
-
-  const matchedAnchors = anchors.filter((token) => pathValue.includes(token));
-  if (matchedAnchors.length > 0) {
-    return matchedAnchors.length * 18;
-  }
-
-  return -18;
-}
-
-function entityAnchorTokens(tokens) {
-  const roleTokens = new Set([
-    "service",
-    "payments",
-    "payment",
-    "checkout",
-    "charges",
-    "charge",
-    "validation",
-    "validate",
-    "validator",
-    "account",
-    "number",
-    "country",
-    "mapper",
-    "mapping",
-    "map",
-    "sync",
-    "transform",
-    "queue",
-    "retry",
-    "delivery",
-    "enqueue",
-    "inngest",
-    "worker",
-    "job",
-    "trigger",
-    "guard",
-    "auth",
-    "authorize",
-    "permission",
-    "controller",
-    "signature",
-    "hmac",
-    "raw",
-    "received",
-    "webhook",
-    "inbound",
-    "event",
-    "provider",
-    "tenant",
-    "connected",
-    "onboarding",
-    "login",
-    "link",
-    "list",
-    "current",
-    "key",
-    "api",
-    "fix",
-    "bug",
-    "issue",
-    "regression",
-    "fallback"
-  ]);
-
-  return tokens.filter((token) => !roleTokens.has(token));
+  const base = (normalizedPath.split("/").pop() || "").replace(/\.[^.]+$/, "");
+  return /(^|[._-])(test|spec)([._-]|$)/.test(base) || /[a-z](test|spec)$/.test(base);
 }
 
 function buildMemoryBoosts(patterns) {

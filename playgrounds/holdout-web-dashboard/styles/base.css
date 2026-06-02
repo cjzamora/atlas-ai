@@ -1,0 +1,13 @@
+:root {
+  --space: 8px;
+}
+
+.container {
+  margin: 0 auto;
+  max-width: 1100px;
+}
+
+.reset-list {
+  list-style: none;
+  padding: 0;
+}

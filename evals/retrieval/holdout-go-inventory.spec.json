@@ -1,0 +1,35 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "stock-level-add-remove",
+      "query": "stock level available add remove on-hand quantity tracking",
+      "expectedEvidence": ["inventory/stock.go"],
+      "expectedTests": ["inventory/stock_test.go"]
+    },
+    {
+      "id": "reorder-point-threshold",
+      "query": "reorder point calculation threshold lead time safety stock",
+      "expectedEvidence": ["inventory/reorder.go"],
+      "expectedTests": ["inventory/reorder_test.go"]
+    },
+    {
+      "id": "warehouse-bin-location",
+      "query": "warehouse bin location assignment capacity zone",
+      "expectedEvidence": ["warehouse/location.go"],
+      "expectedTests": ["warehouse/location_test.go"]
+    },
+    {
+      "id": "transfer-stock-between-locations",
+      "query": "transfer stock between locations move quantity rollback",
+      "expectedEvidence": ["warehouse/transfer.go"],
+      "expectedTests": ["warehouse/transfer_test.go"]
+    },
+    {
+      "id": "suggest-reorder-quantity-when-low",
+      "query": "how many units to reorder when stock is below reorder point",
+      "expectedEvidence": ["inventory/reorder.go"],
+      "expectedTests": ["inventory/reorder_test.go"]
+    }
+  ]
+}

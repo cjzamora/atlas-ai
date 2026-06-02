@@ -23,7 +23,7 @@ test("context bundle includes likely files, selected tests, and source excerpts"
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const task = "fix pricing coupon discount bug";
+    const task = "fix metering ticket tally bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -37,9 +37,9 @@ test("context bundle includes likely files, selected tests, and source excerpts"
     });
 
     assert.equal(bundle.task, task);
-    assert.ok(bundle.selectedTests.includes("test/services/pricing.test.js"));
-    assert.ok(bundle.files.some((file) => file.role === "primary" && file.path === "src/services/pricing.js"));
-    assert.ok(bundle.files.some((file) => file.role === "selected_test" && file.path === "test/services/pricing.test.js"));
+    assert.ok(bundle.selectedTests.includes("test/services/metering.test.js"));
+    assert.ok(bundle.files.some((file) => file.role === "primary" && file.path === "src/services/metering.js"));
+    assert.ok(bundle.files.some((file) => file.role === "selected_test" && file.path === "test/services/metering.test.js"));
     assert.ok(bundle.files.every((file) => typeof file.excerpt === "string"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -58,7 +58,7 @@ test("context bundle includes compact memory hints from prior confirmed fixes", 
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -68,14 +68,14 @@ test("context bundle includes compact memory hints from prior confirmed fixes", 
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -86,7 +86,7 @@ test("context bundle includes compact memory hints from prior confirmed fixes", 
       }
     });
 
-    const task = "fix pricing fallback bug";
+    const task = "fix metering fallback bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -102,8 +102,8 @@ test("context bundle includes compact memory hints from prior confirmed fixes", 
 
     assert.equal(bundle.memoryHints.length, 1);
     assert.equal(bundle.memoryHints[0].outcome, "confirmed");
-    assert.ok(bundle.memoryHints[0].files.includes("src/services/pricing.js"));
-    assert.ok(bundle.memoryHints[0].tests.includes("test/services/pricing.test.js"));
+    assert.ok(bundle.memoryHints[0].files.includes("src/services/metering.js"));
+    assert.ok(bundle.memoryHints[0].tests.includes("test/services/metering.test.js"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

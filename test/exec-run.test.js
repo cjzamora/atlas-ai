@@ -27,7 +27,7 @@ test("exec run returns a logged failure when OPENAI_API_KEY is missing", async (
     delete process.env.OPENAI_API_KEY;
 
     const result = await execCommand({
-      args: ["run", "fix pricing coupon discount bug"],
+      args: ["run", "fix metering ticket tally bug"],
       flags: { root: workingRoot, provider: "openai", model: "codex" }
     });
 
@@ -87,7 +87,7 @@ test("exec run retries transient provider failures and succeeds on a later attem
     };
 
     const result = await execCommand({
-      args: ["run", "fix pricing coupon discount bug"],
+      args: ["run", "fix metering ticket tally bug"],
       flags: { root: workingRoot, provider: "openai", model: "gpt-5.4" }
     });
 
@@ -141,7 +141,7 @@ test("exec run records normalized retry exhaustion details for provider failures
     };
 
     const result = await execCommand({
-      args: ["run", "fix pricing coupon discount bug"],
+      args: ["run", "fix metering ticket tally bug"],
       flags: { root: workingRoot, provider: "openai", model: "gpt-5.4" }
     });
 
@@ -194,7 +194,7 @@ test("exec handoff builds a logged manual Codex handoff artifact", async () => {
     upsertFiles(runtime.paths.dbFile, scan.files);
 
     const result = await execCommand({
-      args: ["handoff", "fix pricing coupon discount bug"],
+      args: ["handoff", "fix metering ticket tally bug"],
       flags: { root: workingRoot, provider: "codex" }
     });
 
@@ -230,27 +230,27 @@ test("exec import stages an external Codex response as a patch artifact", async 
     await fs.writeFile(
       responseFile,
       [
-        "Likely root cause: pricing clamp is missing.",
+        "Likely root cause: metering clamp is missing.",
         "",
         "```diff",
-        "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-        "--- a/src/services/pricing.js",
-        "+++ b/src/services/pricing.js",
+        "diff --git a/src/services/metering.js b/src/services/metering.js",
+        "--- a/src/services/metering.js",
+        "+++ b/src/services/metering.js",
         "@@ -1,6 +1,6 @@",
-        " export function calculateDiscount(coupon, subtotal) {",
-        "   if (!coupon || coupon.expired) {",
+        " export function calculateTally(ticket, baseline) {",
+        "   if (!ticket || ticket.stale) {",
         "     return 0;",
         "   }",
         " ",
-        "-  return Math.min(subtotal, coupon.amountOff || 0);",
-        "+  return Math.min(subtotal, coupon.amountOff);",
+        "-  return Math.min(baseline, ticket.ceiling || 0);",
+        "+  return Math.min(baseline, ticket.ceiling);",
         " }",
         "```"
       ].join("\n")
     );
 
     const result = await execCommand({
-      args: ["import", "fix pricing coupon discount bug"],
+      args: ["import", "fix metering ticket tally bug"],
       flags: { root: workingRoot, provider: "codex", file: responseFile }
     });
 

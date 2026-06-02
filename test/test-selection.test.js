@@ -10,7 +10,7 @@ import { selectImpactedTests } from "../src/validation/test-selection.js";
 
 const fixtureRoot = path.resolve("test/fixtures/sample-repo");
 
-test("impacted test selection returns relevant tests for pricing changes", async () => {
+test("impacted test selection returns relevant tests for metering changes", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
@@ -20,16 +20,16 @@ test("impacted test selection returns relevant tests for pricing changes", async
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const impacted = selectImpactedTests(runtime.paths.dbFile, "pricing coupon discount", 5);
-    assert.ok(impacted.impactedFiles.includes("src/services/pricing.js"));
-    assert.ok(impacted.tests.some((entry) => entry.path === "test/services/pricing.test.js"));
-    assert.ok(impacted.tests.some((entry) => entry.path === "test/services/checkout.test.js"));
+    const impacted = selectImpactedTests(runtime.paths.dbFile, "metering ticket tally", 5);
+    assert.ok(impacted.impactedFiles.includes("src/services/metering.js"));
+    assert.ok(impacted.tests.some((entry) => entry.path === "test/services/metering.test.js"));
+    assert.ok(impacted.tests.some((entry) => entry.path === "test/services/intake.test.js"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("impacted test selection ranks the most directly matching pricing test first for pricing bug queries", async () => {
+test("impacted test selection ranks the most directly matching metering test first for metering bug queries", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-ranking-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
@@ -39,8 +39,8 @@ test("impacted test selection ranks the most directly matching pricing test firs
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const impacted = selectImpactedTests(runtime.paths.dbFile, "fix pricing fallback bug", 5);
-    assert.equal(impacted.tests[0].path, "test/services/pricing.test.js");
+    const impacted = selectImpactedTests(runtime.paths.dbFile, "fix metering fallback bug", 5);
+    assert.equal(impacted.tests[0].path, "test/services/metering.test.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -56,12 +56,12 @@ test("impacted test selection uses prior confirmed fix memory as a bounded tie-b
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const before = selectImpactedTests(runtime.paths.dbFile, "fix subtotal regression", 5);
-    assert.equal(before.tests[0].path, "test/services/checkout.test.js");
+    const before = selectImpactedTests(runtime.paths.dbFile, "fix baseline regression", 5);
+    assert.equal(before.tests[0].path, "test/services/intake.test.js");
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -71,14 +71,14 @@ test("impacted test selection uses prior confirmed fix memory as a bounded tie-b
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -89,8 +89,8 @@ test("impacted test selection uses prior confirmed fix memory as a bounded tie-b
       }
     });
 
-    const after = selectImpactedTests(runtime.paths.dbFile, "fix subtotal regression", 5);
-    assert.equal(after.tests[0].path, "test/services/pricing.test.js");
+    const after = selectImpactedTests(runtime.paths.dbFile, "fix baseline regression", 5);
+    assert.equal(after.tests[0].path, "test/services/metering.test.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
