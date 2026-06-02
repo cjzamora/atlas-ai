@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { CONTRACT_VERSION } from "./contracts.js";
 
 export function buildExecutionRequest({ task, classification, bundle, prompt, provider = "openai", model = "gpt-5.4" }) {
   const context = {
@@ -20,6 +21,7 @@ export function buildExecutionRequest({ task, classification, bundle, prompt, pr
   };
 
   return {
+    schemaVersion: CONTRACT_VERSION,
     requestId: crypto.createHash("sha1").update(`${task}:${prompt}`).digest("hex").slice(0, 12),
     provider,
     model,

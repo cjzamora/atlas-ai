@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { CONTRACT_VERSION } from "./contracts.js";
 
 export function parsePatchResponse(rawOutput) {
   const raw = String(rawOutput || "");
@@ -98,6 +99,7 @@ export function buildPatchArtifact({
   return {
     id,
     type: "patch",
+    schemaVersion: CONTRACT_VERSION,
     reviewOnly: true,
     task,
     provider,

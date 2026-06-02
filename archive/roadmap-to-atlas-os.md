@@ -176,7 +176,7 @@ across codebases.
 
 ---
 
-## Gate 2 — Stable contracts — **PARTIALLY MET**
+## Gate 2 — Stable contracts — **MET** (documented + versioned)
 
 ### Current state
 Broad and internally consistent: a shared `{ ok, command, ... }` envelope across all `--json` outputs,
@@ -187,17 +187,19 @@ surface matches the README; clean normalized execution request/response
 [patch-artifact.js](../src/core/patch-artifact.js)). The plan artifact's `validationStrategy.mode`
 (`none|graph|heuristic`) and `directTests` vs `expandedTests` split are honest design.
 
-### Gap
-- **Undocumented** — contracts live only as informal JSDoc typedefs.
-- **Unversioned** — no `schemaVersion` on any artifact or `--json` payload (only `.atlas/config.json`
-  carries `version: 1`, [runtime.js:33](../src/core/runtime.js)).
-- **Redundant** — `buildExecutionRequest` ([execution-builder.js](../src/core/execution-builder.js))
-  writes the same fields both nested (`input`/`context`) and duplicated at the top level — two sources
-  of truth that will eventually disagree.
+### Gap — CLOSED (roadmap #5)
+- ~~Undocumented~~ — [docs/CONTRACTS.md](../docs/CONTRACTS.md) now documents the command surface, the
+  `{ ok, command }` envelope, the execution request/response/handoff, and the plan/context/patch
+  artifacts with their lifecycle states.
+- ~~Unversioned~~ — `CONTRACT_VERSION` ([contracts.js](../src/core/contracts.js)) is stamped as
+  `schemaVersion` on the two persisted operator-facing contracts (execution request, patch artifact);
+  additive fields don't bump it. The eval report is left unversioned by design (byte-exact drift guard).
+- **Redundant** — the `buildExecutionRequest` flat/nested duplication is **documented as intentional**
+  (canonical = `input`/`context`; the flat mirror is adapter convenience) rather than removed, to avoid
+  breaking adapters/tests that read the flat fields.
 
 ### Work to close
-Write a `CONTRACTS.md` documenting every `--json` shape + execution/plan/context/patch artifact; stamp
-a `schemaVersion`; resolve the `execution-builder` duplication.
+Done (#5).
 
 ### Prior-doc status
 **New** — under-addressed in README and all archive plans.
@@ -311,7 +313,7 @@ repo-derived signals serves the north star *and* unblocks Gate 1's generalizatio
 | 2 ✅ | **Held-out real-repo eval as the fitness function** | 1 (integrity) | A general ranker can only be proven on repos it was never tuned on. | **DONE** — 5 held-out repos (Python/Go/Ruby/Rust/flat-JS) under `playgrounds/holdout-*` + specs; all 1.00/1.00, commerce held at 1.00/1.00. Next: grow case count + categorize the tail-rank (test-over-source) misses. |
 | 3 ✅ | **Multi-language graph (dependency-light, not tree-sitter)** | 3 (language) | The graph is the main domain-free signal; it must work beyond JS/TS. | **DONE** — chose dependency-light per-language extractors over tree-sitter (no eval evidence yet justifying a WASM parser; preserves the dependency-light ethos). `scanner.js` now extracts symbols/imports/calls for Python, Ruby, Rust, Go; call edges resolve via the language-agnostic symbol index. Measured edges: Python 18 import/35 call, Go 34 call, Ruby 13/11, Rust 10/13. Held-out hit rate unchanged at 1.00/1.00; JS/TS unaffected. Upgrade to tree-sitter remains evidence-gated on a larger real repo. |
 | 4 | **Full-suite miss-rate harness** | 1 (safety) | Quantifies the depth-2 recall cliff and the trust level of `confirm`. | A run mode runs the full suite alongside the selected subset; the ledger surfaces a rolling miss-rate. |
-| 5 | **Document + version the public contracts** | 2 | The operator layer must build against a stable, versioned surface. | `CONTRACTS.md` documents every `--json` + artifact shape; each payload carries `schemaVersion`; the `execution-builder` duplication is resolved. |
+| 5 ✅ | **Document + version the public contracts** | 2 | The operator layer must build against a stable, versioned surface. | **DONE** — `docs/CONTRACTS.md` documents the command/`--json`/artifact surface; `CONTRACT_VERSION` stamped as `schemaVersion` on the execution request + patch artifact; `execution-builder` duplication documented as intentional. |
 | 6 ✅ | **Symbol-aware context windowing** | 3 (usability) | Head-truncation can omit the target symbol. | **DONE** — `compressContent` now centers the excerpt on the matched symbol (or first query-token line), head-truncation only as fallback; verified on a >1400-char fixture where the symbol sits past the head. |
 | 7 ✅ | **Wire token/cost aggregation into `cost report`** | 5 | Per-run tokens already exist; surfacing them is what routing/budgeting consumes. | **DONE** — `cost report` now returns a `tokenUsage` block (total in/out/total + per-provider/model breakdown) from the recorded per-run metrics; placeholder removed; verified by test. |
 

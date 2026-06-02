@@ -43,6 +43,7 @@
  * @property {boolean} codexNeeded
  *
  * @typedef {Object} ExecutionRequest
+ * @property {number} schemaVersion
  * @property {string} requestId
  * @property {string} provider
  * @property {string} model
@@ -70,5 +71,12 @@
  * @property {string[]} selectedTests
  * @property {Array<{path: string, role: string, symbol: string | null}>} files
  */
+
+/**
+ * Version of the persisted, operator-facing contracts (the execution request and
+ * the patch artifact). Bump when a field is removed or its meaning changes;
+ * purely additive fields do not require a bump. See docs/CONTRACTS.md.
+ */
+export const CONTRACT_VERSION = 1;
 
 export const atlasContracts = {};
