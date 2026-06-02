@@ -1,0 +1,63 @@
+{
+  "limit": 5,
+  "cases": [
+    {
+      "id": "auth-guard-service",
+      "query": "api key auth current app guard service",
+      "expectedEvidence": [
+        "api/src/modules/auth/app-auth.service.ts",
+        "api/src/modules/auth/app-auth.guard.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/auth/__tests__/app-auth.service.spec.ts"
+      ]
+    },
+    {
+      "id": "stripe-connect-payments",
+      "query": "stripe connect payments checkout connected account list charges",
+      "expectedEvidence": [
+        "api/src/modules/stripe-connect/stripe-connect.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/stripe-connect/__tests__/stripe-connect.service.spec.ts"
+      ]
+    },
+    {
+      "id": "webhook-delivery-retry",
+      "query": "webhook delivery retry queue provider event processing",
+      "expectedEvidence": [
+        "api/src/modules/webhooks/webhooks.service.ts",
+        "api/src/modules/webhooks/webhook-queue.service.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/webhooks/__tests__/webhooks.service.spec.ts",
+        "api/src/modules/webhooks/__tests__/stripe-webhook.service.spec.ts"
+      ]
+    },
+    {
+      "id": "transfermate-beneficiary-validation",
+      "query": "transfermate beneficiary validation account number country",
+      "expectedEvidence": [
+        "api/src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/transfermate-beneficiaries/__tests__/transfermate-beneficiary.validation.spec.ts",
+        "api/src/modules/transfermate-beneficiaries/__tests__/transfermate-beneficiary.account-number.spec.ts"
+      ]
+    },
+    {
+      "id": "xero-mapping-sync",
+      "query": "xero mapper sync inngest tenant webhook",
+      "expectedEvidence": [
+        "api/src/modules/xero/xero.mapper.ts",
+        "api/src/modules/xero/xero.service.ts",
+        "api/src/modules/xero/xero.inngest.ts"
+      ],
+      "expectedTests": [
+        "api/src/modules/xero/__tests__/xero.mapper.spec.ts",
+        "api/src/modules/xero/__tests__/xero.service.spec.ts",
+        "api/src/modules/xero/__tests__/xero.inngest.spec.ts"
+      ]
+    }
+  ]
+}
