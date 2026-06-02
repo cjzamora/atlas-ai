@@ -71,7 +71,7 @@ node src/cli.js runs --command fix --status completed --root playgrounds/react-n
 node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json --report /tmp/retrieval-report.json --fail-under 0.8
-node src/cli.js eval retrieval --root playgrounds/commerce-app --spec evals/retrieval/commerce-app.spec.json --report archive/commerce-app-retrieval-report.json --fail-under 1
+node src/cli.js eval retrieval --root playgrounds/commerce-app --spec evals/retrieval/commerce-app.spec.json --report archive/commerce-app-retrieval-report.json --check-report --fail-under 1
 ```
 
 ## Manual Codex / Claude Round-Trip
@@ -199,8 +199,11 @@ node src/cli.js eval retrieval \
   --root playgrounds/commerce-app \
   --spec evals/retrieval/commerce-app.spec.json \
   --report archive/commerce-app-retrieval-report.json \
+  --check-report \
   --fail-under 1
 ```
+
+Refresh the archive intentionally by running the same command without `--check-report`.
 
 Optional quality gate:
 

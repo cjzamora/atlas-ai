@@ -298,6 +298,7 @@ function formatEvalRetrievalOutput(value) {
   const summary = value.summary || {};
   const lines = [
     `Spec: ${value.specFile || "unknown"}`,
+    `Status: ${value.ok ? "passed" : "failed"}`,
     `Cases: ${summary.caseCount ?? 0}`,
     `Limit: ${summary.limit ?? "unknown"}`,
     `Evidence hit rate: ${formatPercent(summary.evidenceHitRate)}`,
@@ -307,6 +308,10 @@ function formatEvalRetrievalOutput(value) {
     "",
     "Cases:"
   ];
+
+  if (value.reportCheck?.checked) {
+    lines.splice(8, 0, `Report check: ${value.reportCheck.passed ? "current" : value.reportCheck.reason || "stale"}`);
+  }
 
   for (const entry of value.cases || []) {
     lines.push(`- ${entry.query}`);

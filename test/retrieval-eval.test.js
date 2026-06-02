@@ -157,6 +157,55 @@ test("eval retrieval writes a report file and flags threshold failures", async (
   }
 });
 
+test("eval retrieval check-report fails when an archived report is stale", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-retrieval-report-check-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const specFile = path.join(tempRoot, "retrieval-report-check-spec.json");
+    const reportFile = path.join(tempRoot, "retrieval-report.json");
+    await fs.writeFile(
+      specFile,
+      JSON.stringify({
+        limit: 5,
+        cases: [
+          {
+            query: "pricing coupon discount",
+            expectedEvidence: ["src/services/pricing.js"],
+            expectedTests: ["test/services/pricing.test.js"]
+          }
+        ]
+      }, null, 2)
+    );
+    await fs.writeFile(reportFile, JSON.stringify({ ok: true, stale: true }, null, 2));
+
+    const result = await evalCommand({
+      args: ["retrieval"],
+      flags: {
+        root: workingRoot,
+        spec: specFile,
+        report: reportFile,
+        checkReport: true
+      }
+    });
+
+    const persistedReport = JSON.parse(await fs.readFile(reportFile, "utf8"));
+    assert.equal(result.ok, false);
+    assert.equal(result.reportCheck.checked, true);
+    assert.equal(result.reportCheck.passed, false);
+    assert.equal(result.threshold.reportStale, true);
+    assert.deepEqual(persistedReport, { ok: true, stale: true });
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("eval retrieval includes JSON diagnostics for impacted test ranking", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-retrieval-diagnostics-"));
 
@@ -275,6 +324,37 @@ test("eval retrieval passes against the committed commerce playground baseline",
     assert.equal(result.summary.evidenceHitRate, 1);
     assert.equal(result.summary.testHitRate, 1);
     assert.equal(result.summary.rankQualityPassed, true);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("eval retrieval check-report passes against the committed commerce archive", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-eval-commerce-report-check-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "commerce-app");
+    await fs.cp(commercePlaygroundRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+
+    const result = await evalCommand({
+      args: ["retrieval"],
+      flags: {
+        root: workingRoot,
+        spec: "evals/retrieval/commerce-app.spec.json",
+        report: "archive/commerce-app-retrieval-report.json",
+        failUnder: "1",
+        checkReport: true
+      }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.reportCheck.checked, true);
+    assert.equal(result.reportCheck.passed, true);
+    assert.equal(result.threshold.reportStale, false);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

@@ -21,7 +21,38 @@ export async function loadRetrievalEvalSpec(specFile) {
 }
 
 export async function writeRetrievalEvalReport(reportFile, report) {
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2));
+  await fs.writeFile(reportFile, serializeRetrievalEvalReport(report));
+}
+
+export function serializeRetrievalEvalReport(report) {
+  return JSON.stringify(report, null, 2);
+}
+
+export async function checkRetrievalEvalReport(reportFile, report) {
+  let current;
+  try {
+    current = await fs.readFile(reportFile, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        checked: true,
+        passed: false,
+        reportFile,
+        reason: "missing_report"
+      };
+    }
+    throw error;
+  }
+
+  const expected = serializeRetrievalEvalReport(report);
+  const passed = current === expected;
+
+  return {
+    checked: true,
+    passed,
+    reportFile,
+    reason: passed ? null : "stale_report"
+  };
 }
 
 export function evaluateRetrievalSpec(dbFile, spec) {

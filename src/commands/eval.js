@@ -1,8 +1,8 @@
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { createRunLogger } from "../core/run-log.js";
-import { loadRetrievalEvalSpec, evaluateRetrievalSpec, writeRetrievalEvalReport } from "../core/retrieval-eval.js";
+import { checkRetrievalEvalReport, loadRetrievalEvalSpec, evaluateRetrievalSpec, writeRetrievalEvalReport } from "../core/retrieval-eval.js";
 
-const USAGE = 'Usage: atlas eval retrieval --spec <spec.json> [--report <report.json>] [--fail-under <0..1>] [--root <path>] [--json]';
+const USAGE = 'Usage: atlas eval retrieval --spec <spec.json> [--report <report.json>] [--check-report] [--fail-under <0..1>] [--root <path>] [--json]';
 
 export async function evalCommand({ args, flags }) {
   const subcommand = args[0];
@@ -19,6 +19,11 @@ export async function evalCommand({ args, flags }) {
   const spec = await loadRetrievalEvalSpec(specFile);
   const evaluation = evaluateRetrievalSpec(runtime.paths.dbFile, spec);
   const threshold = buildThresholdResult(evaluation.summary, flags.failUnder);
+  const reportFile = String(flags.report || "").trim();
+  const checkReport = Boolean(flags.checkReport);
+  if (checkReport && !reportFile) {
+    throw new Error(USAGE);
+  }
 
   const logger = createRunLogger(runtime.paths.dbFile);
   const run = logger.startRun({
@@ -40,9 +45,19 @@ export async function evalCommand({ args, flags }) {
     ...evaluation
   };
 
-  const reportFile = String(flags.report || "").trim();
   if (reportFile) {
-    await writeRetrievalEvalReport(reportFile, output);
+    if (checkReport) {
+      const reportCheck = await checkRetrievalEvalReport(reportFile, output);
+      output.reportCheck = reportCheck;
+      output.threshold = {
+        ...output.threshold,
+        failed: output.threshold.failed || !reportCheck.passed,
+        reportStale: !reportCheck.passed
+      };
+      output.ok = !output.threshold.failed;
+    } else {
+      await writeRetrievalEvalReport(reportFile, output);
+    }
     output.reportFile = reportFile;
   }
 
@@ -53,7 +68,8 @@ export async function evalCommand({ args, flags }) {
       caseCount: evaluation.summary.caseCount,
       evidenceHitRate: evaluation.summary.evidenceHitRate,
       testHitRate: evaluation.summary.testHitRate,
-      thresholdFailed: threshold.failed ? 1 : 0
+      thresholdFailed: output.threshold.failed ? 1 : 0,
+      reportStale: output.threshold.reportStale ? 1 : 0
     }
   });
 
