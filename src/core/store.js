@@ -226,7 +226,14 @@ export function searchMemory(dbFile, query, limit) {
       select id, source_run_id as sourceRunId, summary, tags, confidence, created_at as createdAt
       from memory_records
       where ${where}
-      order by id desc
+      order by
+        case confidence
+          when 'high' then 3
+          when 'medium' then 2
+          when 'low' then 1
+          else 0
+        end desc,
+        id desc
       limit ${Math.max(1, Number(limit || 5))};
     `
   ).map((row) => summarizeMemoryRecord(row));
@@ -360,6 +367,20 @@ function maybeLearnFromRun(dbFile, id, payload) {
     return;
   }
 
+  const duplicateRows = querySql(
+    dbFile,
+    `
+      select id
+      from memory_records
+      where summary = '${escapeSql(record.summary)}'
+        and tags = '${escapeSql(record.tags.join(","))}'
+      limit 1;
+    `
+  );
+  if (duplicateRows.length > 0) {
+    return;
+  }
+
   executeSql(
     dbFile,
     `
@@ -442,7 +463,7 @@ function deriveRunOutcomeMemory(output) {
         ...rolledBackFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
-      confidence: "high"
+      confidence: "medium"
     };
   }
 
@@ -459,7 +480,7 @@ function deriveRunOutcomeMemory(output) {
         ...changedFiles.map((file) => `file:${file}`),
         ...tokenTags(task)
       ],
-      confidence: "high"
+      confidence: "medium"
     };
   }
 

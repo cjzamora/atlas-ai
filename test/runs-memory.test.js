@@ -4,7 +4,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import { ensureAtlasRuntime } from "../src/core/runtime.js";
-import { insertRun, listRuns, searchMemory, updateRun } from "../src/core/store.js";
+import { findRelevantRunPatterns, insertRun, listRuns, searchMemory, updateRun } from "../src/core/store.js";
 import { runsCommand } from "../src/commands/runs.js";
 import { memorySearchCommand } from "../src/commands/memory-search.js";
 
@@ -235,6 +235,118 @@ test("runs and memory commands expose filtered summaries", async () => {
     });
     assert.equal(memoryResult.count, 1);
     assert.equal(memoryResult.matches[0].type, "run_outcome");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("memory learning dedupes repeated identical confirmed fix outcomes", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-memory-dedupe-"));
+  try {
+    const runtime = await ensureAtlasRuntime(tempRoot);
+
+    for (let index = 0; index < 2; index += 1) {
+      const run = insertRun(runtime.paths.dbFile, {
+        command: "fix",
+        input: "fix pricing fallback bug",
+        metadata: {
+          provider: "openai",
+          model: "gpt-5.4"
+        }
+      });
+      updateRun(runtime.paths.dbFile, run.id, {
+        status: "completed",
+        output: {
+          command: "fix",
+          task: "fix pricing fallback bug",
+          status: "confirmed",
+          apply: {
+            changedFiles: ["src/services/pricing.js"]
+          },
+          stage: {
+            request: {
+              selectedTests: ["test/services/pricing.test.js"]
+            }
+          }
+        },
+        metrics: {
+          totalTokens: 30,
+          selectedTests: 1,
+          changedFiles: 1
+        }
+      });
+    }
+
+    const matches = searchMemory(runtime.paths.dbFile, "pricing fallback", 10)
+      .filter((entry) => entry.type === "run_outcome");
+    assert.equal(matches.length, 1);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("relevant run patterns prefer confirmed memories over contradictory rollback memories", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-memory-quality-"));
+  try {
+    const runtime = await ensureAtlasRuntime(tempRoot);
+
+    const confirmedRun = insertRun(runtime.paths.dbFile, {
+      command: "fix",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "openai",
+        model: "gpt-5.4"
+      }
+    });
+    updateRun(runtime.paths.dbFile, confirmedRun.id, {
+      status: "completed",
+      output: {
+        command: "fix",
+        task: "fix pricing fallback bug",
+        status: "confirmed",
+        apply: {
+          changedFiles: ["src/services/pricing.js"]
+        },
+        stage: {
+          request: {
+            selectedTests: ["test/services/pricing.test.js"]
+          }
+        }
+      },
+      metrics: {
+        totalTokens: 30,
+        selectedTests: 1,
+        changedFiles: 1
+      }
+    });
+
+    const rollbackRun = insertRun(runtime.paths.dbFile, {
+      command: "fix",
+      input: "fix pricing fallback bug",
+      metadata: {
+        provider: "openai",
+        model: "gpt-5.4"
+      }
+    });
+    updateRun(runtime.paths.dbFile, rollbackRun.id, {
+      status: "failed",
+      output: {
+        command: "fix",
+        task: "fix pricing fallback bug",
+        status: "rolled_back",
+        rollback: {
+          changedFiles: ["src/services/pricing.js"]
+        }
+      },
+      metrics: {
+        totalTokens: 45,
+        rolledBackFiles: 1
+      }
+    });
+
+    const patterns = findRelevantRunPatterns(runtime.paths.dbFile, "pricing fallback", 5);
+    assert.equal(patterns[0].outcome, "confirmed");
+    assert.ok(patterns.some((entry) => entry.outcome === "rolled_back"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
