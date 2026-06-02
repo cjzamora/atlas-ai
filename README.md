@@ -70,6 +70,42 @@ node src/cli.js runs --command fix --status completed --root playgrounds/react-n
 node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
 ```
 
+## Manual Codex / Claude Round-Trip
+
+For manual execution environments such as Codex and Claude Code:
+
+1. Prepare a handoff bundle:
+
+```bash
+node src/cli.js exec handoff "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex
+```
+
+2. Paste the generated prompt into Codex or Claude Code and save the response to a local file.
+
+3. Import that response back into Atlas as a staged patch artifact:
+
+```bash
+node src/cli.js exec import "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex --file /path/to/response.txt
+```
+
+4. Run the selected tests against the imported artifact:
+
+```bash
+node src/cli.js test run --artifact patch-<id> --root playgrounds/react-nest-demo
+```
+
+5. Apply and confirm the imported patch:
+
+```bash
+node src/cli.js patch apply patch-<id> --confirm --root playgrounds/react-nest-demo
+```
+
+6. If confirmation fails, roll back explicitly:
+
+```bash
+node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
+```
+
 ## Included Fixtures
 
 ### `test/fixtures/sample-repo`
