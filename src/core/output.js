@@ -51,6 +51,10 @@ function formatHuman(value) {
     return formatExecHandoffOutput(value);
   }
 
+  if (value.command === "exec import") {
+    return formatExecImportOutput(value);
+  }
+
   if (value.command === "patch stage") {
     return formatPatchStageOutput(value);
   }
@@ -362,6 +366,36 @@ function formatExecHandoffOutput(value) {
   return lines.join("\n");
 }
 
+function formatExecImportOutput(value) {
+  const request = value.request || {};
+  const artifact = value.artifact || {};
+  const lines = [
+    `Task: ${value.task}`,
+    `Provider: ${request.provider || artifact.provider || "unknown"}`,
+    `Model: ${request.model || artifact.model || "unknown"}`,
+    `Request ID: ${request.requestId || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    `Artifact: ${value.artifactId || artifact.id || "unknown"}`,
+    `Parse status: ${artifact.parseStatus || "unknown"}`,
+    "",
+    "Selected tests:",
+    ...formatLines(artifact.selectedTests || request.selectedTests),
+    "",
+    "Changed files from diff:",
+    ...formatLines(extractImportedPaths(artifact))
+  ];
+
+  if (artifact.importSource?.path) {
+    lines.push("", `Imported from: ${artifact.importSource.path}`);
+  }
+
+  if (value.error) {
+    lines.push("", `Error: ${value.error.message}`);
+  }
+
+  return lines.join("\n");
+}
+
 function formatPatchStageOutput(value) {
   const artifact = value.artifact || {};
   const request = value.request || {};
@@ -390,6 +424,22 @@ function formatPatchStageOutput(value) {
   }
 
   return lines.join("\n");
+}
+
+function extractImportedPaths(artifact) {
+  const diffs = (artifact.patches || [])
+    .filter((patch) => patch.kind === "diff")
+    .map((patch) => patch.diff || "");
+  const paths = new Set();
+
+  for (const diff of diffs) {
+    const matches = diff.matchAll(/^\+\+\+\s+b\/(.+)$/gm);
+    for (const match of matches) {
+      paths.add(match[1]);
+    }
+  }
+
+  return Array.from(paths.values());
 }
 
 function formatPatchShowOutput(value) {

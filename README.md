@@ -25,6 +25,7 @@ It is intentionally local-first and dependency-light.
 - `atlas exec prepare "<task>"`
 - `atlas exec run "<task>"`
 - `atlas exec handoff "<task>"`
+- `atlas exec import "<task>"`
 - `atlas fix "<task>"`
 - `atlas patch stage "<task>"`
 - `atlas patch show <artifact-id>`
@@ -54,6 +55,7 @@ node src/cli.js prompt "fix expired coupons still applying at checkout" --root p
 node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js exec handoff "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex
+node src/cli.js exec import "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex --file /path/to/codex-response.txt
 node src/cli.js fix "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js fix "fix expired coupons still applying at checkout" --rollback-on-fail --root playgrounds/react-nest-demo
 node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
@@ -127,6 +129,7 @@ Implemented:
 - provider-normalized execution adapter seam with OpenAI registered as the first adapter
 - live OpenAI execution request/response logging
 - manual handoff adapters for Codex and Claude Code built on the same normalized execution request
+- external execution result ingestion that stages Codex or Claude responses directly into patch artifacts
 - review-only patch staging artifacts under `.atlas/artifacts`
 - staged patch validation execution with artifact-backed result persistence
 - validated unified-diff application for staged artifacts
@@ -156,6 +159,7 @@ Execution adapter contract in v0:
   - `response.finishReason`
   - `response.text`
 - `exec handoff` builds provider-specific manual export artifacts for `codex` and `claude` without making live API calls
+- `exec import` reads an external response file and stages it directly into the standard patch workflow
 - provider-specific wire details stay inside the adapter implementation
 
 Not implemented yet:

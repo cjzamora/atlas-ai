@@ -88,7 +88,8 @@ export function buildPatchArtifact({
   response,
   usage,
   provider,
-  model
+  model,
+  importSource = null
 }) {
   const rawOutput = response?.text || response?.outputText || "";
   const parsed = parsePatchResponse(rawOutput);
@@ -109,6 +110,7 @@ export function buildPatchArtifact({
     patches: parsed.patches,
     rawOutput: parsed.rawOutput,
     usage: usage || null,
+    importSource,
     selectedTests: request?.selectedTests || [],
     memoryHints: request?.memoryHints || [],
     memoryAssistance: request?.memoryAssistance || {

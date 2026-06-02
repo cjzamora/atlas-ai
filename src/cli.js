@@ -70,6 +70,7 @@ function usage() {
     "  atlas exec prepare \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas exec run \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas exec handoff \"<task>\" [--root <path>] [--limit <n>] [--provider codex|claude] [--model <name>] [--json]",
+    "  atlas exec import \"<task>\" --file <response.txt> [--root <path>] [--limit <n>] [--provider codex|claude] [--model <name>] [--json]",
     "  atlas fix \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--rollback-on-fail] [--json]",
     "  atlas patch stage \"<task>\" [--root <path>] [--limit <n>] [--provider <name>] [--model <name>] [--json]",
     "  atlas patch show <artifact-id> [--root <path>] [--json]",

@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { searchEvidence } from "../core/retrieval.js";
 import { classifyTask, buildPlanArtifact } from "../core/planner.js";
@@ -12,16 +13,17 @@ import "../adapters/codex.js";
 import "../adapters/claude.js";
 import { resolveModelConfig } from "../core/model-config.js";
 import { findRelevantRunPatterns } from "../core/store.js";
+import { buildPatchArtifact, writePatchArtifact } from "../core/patch-artifact.js";
 
 export async function execCommand({ args, flags }) {
   const subcommand = args[0];
-  if (subcommand !== "prepare" && subcommand !== "run" && subcommand !== "handoff") {
-    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"');
+  if (subcommand !== "prepare" && subcommand !== "run" && subcommand !== "handoff" && subcommand !== "import") {
+    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"\n       atlas exec import "<task>" --file <response.txt>');
   }
 
   const task = args.slice(1).join(" ").trim();
   if (!task) {
-    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"');
+    throw new Error('Usage: atlas exec prepare "<task>"\n       atlas exec run "<task>"\n       atlas exec handoff "<task>"\n       atlas exec import "<task>" --file <response.txt>');
   }
 
   const runtime = await ensureAtlasRuntime(flags.root);
@@ -111,6 +113,76 @@ export async function execCommand({ args, flags }) {
         requestId: request.requestId,
         selectedTests: request.selectedTests.length,
         matchedPatternCount: request.memoryAssistance?.matchedPatternCount ?? 0
+      }
+    });
+
+    return output;
+  }
+
+  if (subcommand === "import") {
+    const responseFile = String(flags.file || "").trim();
+    if (!responseFile) {
+      throw new Error('Usage: atlas exec import "<task>" --file <response.txt>');
+    }
+
+    const rawResponse = await fs.readFile(responseFile, "utf8");
+    const logger = createRunLogger(runtime.paths.dbFile);
+    const run = logger.startRun({
+      command: "exec_import",
+      input: task,
+      metadata: {
+        provider,
+        model,
+        requestId: request.requestId,
+        selectedTests: request.selectedTests,
+        executionMode: "import",
+        importSource: {
+          type: "file",
+          path: responseFile
+        },
+        memoryAssistance: request.memoryAssistance || null
+      }
+    });
+
+    const artifact = buildPatchArtifact({
+      task,
+      request,
+      response: {
+        provider,
+        status: "imported",
+        finishReason: "external_import",
+        text: rawResponse
+      },
+      usage: null,
+      provider,
+      model,
+      importSource: {
+        type: "file",
+        path: responseFile
+      }
+    });
+    const artifactPath = await writePatchArtifact(runtime.paths.artifactsDir, artifact);
+
+    const output = {
+      ok: true,
+      command: "exec import",
+      task,
+      request,
+      status: "staged",
+      artifactId: artifact.id,
+      artifactPath,
+      artifact
+    };
+
+    logger.finishRun(run.id, {
+      status: "completed",
+      output,
+      metrics: {
+        provider,
+        model,
+        requestId: request.requestId,
+        selectedTests: request.selectedTests.length,
+        importedPatches: artifact.patches.length
       }
     });
 
