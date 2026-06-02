@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import { ensureAtlasRuntime } from "../src/core/runtime.js";
 import { scanRepository } from "../src/core/scanner.js";
-import { upsertFiles } from "../src/core/store.js";
+import { getCostReport, upsertFiles } from "../src/core/store.js";
 import { fixCommand } from "../src/commands/fix.js";
 
 const fixtureRoot = path.resolve("test/fixtures/sample-repo");
@@ -66,9 +66,21 @@ test("fix command stages, validates, applies, and confirms a patch artifact", as
     assert.equal(result.validation.status, "passed");
     assert.equal(result.apply.status, "confirmed");
     assert.equal(result.artifact.status, "confirmed");
+    assert.equal(result.metrics.totalTokens, 30);
+    assert.equal(result.metrics.stageTokens, 30);
+    assert.equal(result.metrics.applyTokens, 0);
+    assert.ok(result.metrics.selectedTests >= 1);
+    assert.ok(Array.isArray(result.phaseSummary));
+    assert.equal(result.phaseSummary.length, 3);
+    assert.equal(result.phaseSummary[0].phase, "stage");
+    assert.equal(result.phaseSummary[1].phase, "validate");
+    assert.equal(result.phaseSummary[2].phase, "apply");
 
     const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
     assert.match(updatedSource, /Math\.min\(subtotal, coupon\.amountOff\)/);
+
+    const report = getCostReport(runtime.paths.dbFile);
+    assert.equal(report.fixRuns, 1);
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY;
@@ -151,6 +163,9 @@ test("fix command stops before apply when validation fails", async () => {
     assert.equal(result.stage.status, "staged");
     assert.ok(["failed", "skipped"].includes(result.validation.status));
     assert.equal(result.apply, null);
+    assert.equal(result.metrics.totalTokens, 30);
+    assert.equal(result.metrics.stageTokens, 30);
+    assert.equal(result.metrics.selectedTests, 0);
 
     const source = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
     assert.match(source, /Math\.min\(subtotal, coupon\.amountOff \|\| 0\)/);
@@ -250,6 +265,9 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
     assert.equal(result.apply.status, "apply_failed_validation");
     assert.equal(result.rollback.status, "rolled_back");
     assert.equal(result.artifact.status, "rolled_back");
+    assert.equal(result.metrics.totalTokens, 30);
+    assert.equal(result.metrics.rolledBackFiles, 1);
+    assert.equal(result.phaseSummary.at(-1).phase, "rollback");
 
     const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
     assert.equal(restoredSource, originalSource);

@@ -166,6 +166,16 @@ function formatFixOutput(value) {
   if (value.rollback) {
     lines.push(`Rollback: ${value.rollback.status || "unknown"}`);
   }
+  if (value.metrics) {
+    lines.push(
+      "",
+      "Metrics:",
+      `- Total tokens: ${value.metrics.totalTokens ?? 0}`,
+      `- Stage tokens: ${value.metrics.stageTokens ?? 0}`,
+      `- Apply tokens: ${value.metrics.applyTokens ?? 0}`,
+      `- Selected tests: ${value.metrics.selectedTests ?? 0}`
+    );
+  }
 
   if (!value.ok && value.stage?.error?.message) {
     lines.push("", `Error: ${value.stage.error.message}`);

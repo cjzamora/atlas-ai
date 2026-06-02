@@ -126,6 +126,7 @@ Implemented:
 - optional `patch apply --confirm` convenience path that preserves the same artifact states
 - thin `fix` orchestration that composes stage, validate, and apply/confirm
 - optional `fix --rollback-on-fail` path for automatic recovery after failed post-apply confirmation
+- aggregated `fix` metrics for tokens, selected tests, and phase status
 
 Not implemented yet:
 

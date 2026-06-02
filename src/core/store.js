@@ -218,7 +218,8 @@ export function getCostReport(dbFile) {
         count(*) as totalRuns,
         sum(case when command = 'index' then 1 else 0 end) as indexRuns,
         sum(case when command = 'ask' then 1 else 0 end) as askRuns,
-        sum(case when command = 'plan' then 1 else 0 end) as planRuns
+        sum(case when command = 'plan' then 1 else 0 end) as planRuns,
+        sum(case when command = 'fix' then 1 else 0 end) as fixRuns
       from runs;
     `
   )[0] || {};
@@ -250,6 +251,7 @@ export function getCostReport(dbFile) {
     indexRuns: Number(runCounts.indexRuns || 0),
     askRuns: Number(runCounts.askRuns || 0),
     planRuns: Number(runCounts.planRuns || 0),
+    fixRuns: Number(runCounts.fixRuns || 0),
     indexedFiles: Number(fileStats.indexedFiles || 0),
     indexedBytes: Number(fileStats.indexedBytes || 0),
     totalEdges: Number(edgeStats.totalEdges || 0),

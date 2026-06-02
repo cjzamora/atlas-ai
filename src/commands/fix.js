@@ -1,5 +1,7 @@
 import { patchCommand } from "./patch.js";
 import { testCommand } from "./test.js";
+import { ensureAtlasRuntime } from "../core/runtime.js";
+import { createRunLogger } from "../core/run-log.js";
 
 export async function fixCommand({ args, flags }) {
   const task = args.join(" ").trim();
@@ -7,13 +9,25 @@ export async function fixCommand({ args, flags }) {
     throw new Error('Usage: atlas fix "<task>"');
   }
 
+  const runtime = await ensureAtlasRuntime(flags.root);
+  const logger = createRunLogger(runtime.paths.dbFile);
+  const run = logger.startRun({
+    command: "fix",
+    input: task,
+    metadata: {
+      provider: flags.provider || "openai",
+      model: flags.model || "codex",
+      rollbackOnFail: Boolean(flags.rollbackOnFail)
+    }
+  });
+
   const stage = await patchCommand({
     args: ["stage", task],
     flags
   });
 
   if (!stage.ok || !stage.artifactId) {
-    return {
+    const output = {
       ok: false,
       command: "fix",
       task,
@@ -21,8 +35,13 @@ export async function fixCommand({ args, flags }) {
       stage,
       validation: null,
       apply: null,
-      artifact: stage.artifact || null
+      rollback: null,
+      artifact: stage.artifact || null,
+      metrics: buildFixMetrics({ stage, validation: null, apply: null, rollback: null }),
+      phaseSummary: buildPhaseSummary({ stage, validation: null, apply: null, rollback: null })
     };
+    finishFixRun(logger, run.id, output);
+    return output;
   }
 
   const validation = await testCommand({
@@ -31,7 +50,7 @@ export async function fixCommand({ args, flags }) {
   });
 
   if (!validation.ok || validation.status !== "passed") {
-    return {
+    const output = {
       ok: false,
       command: "fix",
       task,
@@ -40,8 +59,13 @@ export async function fixCommand({ args, flags }) {
       stage,
       validation,
       apply: null,
-      artifact: validation.artifact || null
+      rollback: null,
+      artifact: validation.artifact || null,
+      metrics: buildFixMetrics({ stage, validation, apply: null, rollback: null }),
+      phaseSummary: buildPhaseSummary({ stage, validation, apply: null, rollback: null })
     };
+    finishFixRun(logger, run.id, output);
+    return output;
   }
 
   const apply = await patchCommand({
@@ -55,7 +79,7 @@ export async function fixCommand({ args, flags }) {
       flags
     });
 
-    return {
+    const output = {
       ok: false,
       command: "fix",
       task,
@@ -65,11 +89,15 @@ export async function fixCommand({ args, flags }) {
       validation,
       apply,
       rollback,
-      artifact: rollback.artifact || null
+      artifact: rollback.artifact || null,
+      metrics: buildFixMetrics({ stage, validation, apply, rollback }),
+      phaseSummary: buildPhaseSummary({ stage, validation, apply, rollback })
     };
+    finishFixRun(logger, run.id, output);
+    return output;
   }
 
-  return {
+  const output = {
     ok: apply.ok,
     command: "fix",
     task,
@@ -79,6 +107,61 @@ export async function fixCommand({ args, flags }) {
     validation,
     apply,
     rollback: null,
-    artifact: apply.artifact || null
+    artifact: apply.artifact || null,
+    metrics: buildFixMetrics({ stage, validation, apply, rollback: null }),
+    phaseSummary: buildPhaseSummary({ stage, validation, apply, rollback: null })
   };
+  finishFixRun(logger, run.id, output);
+  return output;
+}
+
+function buildFixMetrics({ stage, validation, apply, rollback }) {
+  const stageTokens = Number(stage?.usage?.totalTokens || 0);
+  const applyTokens = Number(apply?.usage?.totalTokens || 0);
+
+  return {
+    stageTokens,
+    applyTokens,
+    totalTokens: stageTokens + applyTokens,
+    selectedTests: Number(stage?.request?.selectedTests?.length || 0),
+    changedFiles: Number(apply?.changedFiles?.length || 0),
+    rolledBackFiles: Number(rollback?.changedFiles?.length || 0)
+  };
+}
+
+function buildPhaseSummary({ stage, validation, apply, rollback }) {
+  const phases = [];
+  if (stage) {
+    phases.push({
+      phase: "stage",
+      status: stage.status || "unknown"
+    });
+  }
+  if (validation) {
+    phases.push({
+      phase: "validate",
+      status: validation.status || "unknown"
+    });
+  }
+  if (apply) {
+    phases.push({
+      phase: "apply",
+      status: apply.status || "unknown"
+    });
+  }
+  if (rollback) {
+    phases.push({
+      phase: "rollback",
+      status: rollback.status || "unknown"
+    });
+  }
+  return phases;
+}
+
+function finishFixRun(logger, runId, output) {
+  logger.finishRun(runId, {
+    status: output.ok ? "completed" : "failed",
+    output,
+    metrics: output.metrics || {}
+  });
 }
