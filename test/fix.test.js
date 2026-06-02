@@ -32,17 +32,17 @@ test("fix command stages, validates, applies, and confirms a patch artifact", as
         status: "completed",
         output_text: [
           "```diff",
-          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-          "--- a/src/services/pricing.js",
-          "+++ b/src/services/pricing.js",
+          "diff --git a/src/services/metering.js b/src/services/metering.js",
+          "--- a/src/services/metering.js",
+          "+++ b/src/services/metering.js",
           "@@ -1,6 +1,6 @@",
-          " export function calculateDiscount(coupon, subtotal) {",
-          "   if (!coupon || coupon.expired) {",
+          " export function calculateTally(ticket, baseline) {",
+          "   if (!ticket || ticket.stale) {",
           "     return 0;",
           "   }",
           " ",
-          "-  return Math.min(subtotal, coupon.amountOff || 0);",
-          "+  return Math.min(subtotal, coupon.amountOff);",
+          "-  return Math.min(baseline, ticket.ceiling || 0);",
+          "+  return Math.min(baseline, ticket.ceiling);",
           " }",
           "```"
         ].join("\n"),
@@ -55,7 +55,7 @@ test("fix command stages, validates, applies, and confirms a patch artifact", as
     });
 
     const result = await fixCommand({
-      args: ["fix pricing fallback bug"],
+      args: ["fix metering fallback bug"],
       flags: { root: workingRoot, provider: "openai", model: "codex", limit: 5 }
     });
 
@@ -76,8 +76,8 @@ test("fix command stages, validates, applies, and confirms a patch artifact", as
     assert.equal(result.phaseSummary[1].phase, "validate");
     assert.equal(result.phaseSummary[2].phase, "apply");
 
-    const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
-    assert.match(updatedSource, /Math\.min\(subtotal, coupon\.amountOff\)/);
+    const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
+    assert.match(updatedSource, /Math\.min\(baseline, ticket\.ceiling\)/);
 
     const report = getCostReport(runtime.paths.dbFile);
     assert.equal(report.fixRuns, 1);
@@ -101,18 +101,18 @@ test("fix command stops before apply when validation fails", async () => {
     const workingRoot = path.join(tempRoot, "sample-repo");
     await fs.cp(fixtureRoot, workingRoot, { recursive: true });
     await fs.writeFile(
-      path.join(workingRoot, "test/services/checkout.test.js"),
+      path.join(workingRoot, "test/services/intake.test.js"),
       [
-        "export function checkoutTestCase() {",
-        "  throw new Error('checkout regression');",
+        "export function intakeTestCase() {",
+        "  throw new Error('intake regression');",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test/services/pricing.test.js"),
+      path.join(workingRoot, "test/services/metering.test.js"),
       [
-        "export function pricingTestCase() {",
-        "  throw new Error('pricing regression');",
+        "export function meteringTestCase() {",
+        "  throw new Error('metering regression');",
         "}"
       ].join("\n")
     );
@@ -130,17 +130,17 @@ test("fix command stops before apply when validation fails", async () => {
         status: "completed",
         output_text: [
           "```diff",
-          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-          "--- a/src/services/pricing.js",
-          "+++ b/src/services/pricing.js",
+          "diff --git a/src/services/metering.js b/src/services/metering.js",
+          "--- a/src/services/metering.js",
+          "+++ b/src/services/metering.js",
           "@@ -1,6 +1,6 @@",
-          " export function calculateDiscount(coupon, subtotal) {",
-          "   if (!coupon || coupon.expired) {",
+          " export function calculateTally(ticket, baseline) {",
+          "   if (!ticket || ticket.stale) {",
           "     return 0;",
           "   }",
           " ",
-          "-  return Math.min(subtotal, coupon.amountOff || 0);",
-          "+  return Math.min(subtotal, coupon.amountOff);",
+          "-  return Math.min(baseline, ticket.ceiling || 0);",
+          "+  return Math.min(baseline, ticket.ceiling);",
           " }",
           "```"
         ].join("\n"),
@@ -153,7 +153,7 @@ test("fix command stops before apply when validation fails", async () => {
     });
 
     const result = await fixCommand({
-      args: ["fix pricing fallback bug"],
+      args: ["fix metering fallback bug"],
       flags: { root: workingRoot, provider: "openai", model: "codex", limit: 5 }
     });
 
@@ -161,15 +161,18 @@ test("fix command stops before apply when validation fails", async () => {
     assert.equal(result.command, "fix");
     assert.equal(result.status, "validation_failed");
     assert.equal(result.stage.status, "staged");
-    assert.ok(["failed", "skipped"].includes(result.validation.status));
-    assert.equal(result.failureReason, null);
+    assert.equal(result.validation.status, "failed");
+    // The metering test is now correctly selected (it shares metering.js's basename
+    // stem) and runs, so confirmation fails with the thrown reason instead of
+    // being silently skipped.
+    assert.match(result.failureReason, /regression/);
     assert.equal(result.apply, null);
     assert.equal(result.metrics.totalTokens, 30);
     assert.equal(result.metrics.stageTokens, 30);
-    assert.equal(result.metrics.selectedTests, 0);
+    assert.ok(result.metrics.selectedTests >= 1);
 
-    const source = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
-    assert.match(source, /Math\.min\(subtotal, coupon\.amountOff \|\| 0\)/);
+    const source = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
+    assert.match(source, /Math\.min\(baseline, ticket\.ceiling \|\| 0\)/);
 
     const report = getCostReport(runtime.paths.dbFile);
     assert.equal(report.validationFailedRuns, 1);
@@ -192,7 +195,7 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
     await fs.cp(fixtureRoot, workingRoot, { recursive: true });
-    const originalSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    const originalSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const scan = await scanRepository(workingRoot);
@@ -207,17 +210,17 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
         status: "completed",
         output_text: [
           "```diff",
-          "diff --git a/src/services/pricing.js b/src/services/pricing.js",
-          "--- a/src/services/pricing.js",
-          "+++ b/src/services/pricing.js",
+          "diff --git a/src/services/metering.js b/src/services/metering.js",
+          "--- a/src/services/metering.js",
+          "+++ b/src/services/metering.js",
           "@@ -1,6 +1,6 @@",
-          " export function calculateDiscount(coupon, subtotal) {",
-          "   if (!coupon || coupon.expired) {",
+          " export function calculateTally(ticket, baseline) {",
+          "   if (!ticket || ticket.stale) {",
           "     return 0;",
           "   }",
           " ",
-          "-  return Math.min(subtotal, coupon.amountOff || 0);",
-          "+  return Math.min(subtotal, coupon.amountOff);",
+          "-  return Math.min(baseline, ticket.ceiling || 0);",
+          "+  return Math.min(baseline, ticket.ceiling);",
           " }",
           "```"
         ].join("\n"),
@@ -235,12 +238,12 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
       const resolved = String(targetPath);
       if (
         shouldFailValidation &&
-        (resolved.endsWith(path.join("test", "services", "pricing.test.js")) ||
-          resolved.endsWith(path.join("test", "services", "checkout.test.js")))
+        (resolved.endsWith(path.join("test", "services", "metering.test.js")) ||
+          resolved.endsWith(path.join("test", "services", "intake.test.js")))
       ) {
-        const exportedName = resolved.endsWith(path.join("pricing.test.js"))
-          ? "pricingTestCase"
-          : "checkoutTestCase";
+        const exportedName = resolved.endsWith(path.join("metering.test.js"))
+          ? "meteringTestCase"
+          : "intakeTestCase";
         return [
           `export function ${exportedName}() {`,
           "  throw new Error('post-apply regression');",
@@ -256,7 +259,7 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
     };
 
     const result = await fixCommand({
-      args: ["fix pricing fallback bug"],
+      args: ["fix metering fallback bug"],
       flags: { root: workingRoot, provider: "openai", model: "codex", limit: 5, rollbackOnFail: true }
     });
 
@@ -274,7 +277,7 @@ test("fix --rollback-on-fail rolls back after post-apply confirmation fails", as
     assert.equal(result.metrics.rolledBackFiles, 1);
     assert.equal(result.phaseSummary.at(-1).phase, "rollback");
 
-    const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/metering.js"), "utf8");
     assert.equal(restoredSource, originalSource);
 
     const report = getCostReport(runtime.paths.dbFile);

@@ -1,0 +1,12 @@
+[package]
+name = "exprengine"
+version = "0.1.0"
+edition = "2021"
+description = "A tiny arithmetic expression engine: lexer, parser, and evaluator."
+license = "MIT"
+
+[lib]
+name = "exprengine"
+path = "src/lib.rs"
+
+[dependencies]

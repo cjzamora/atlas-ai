@@ -15,7 +15,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
 
     const fixRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4",
@@ -26,7 +26,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         memoryAssistance: {
           matchedPatternCount: 1,
@@ -35,7 +35,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
         },
         artifactId: "patch-confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         }
       },
       metrics: {
@@ -47,7 +47,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
 
     const execRun = insertRun(runtime.paths.dbFile, {
       command: "exec_run",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -57,7 +57,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
       status: "failed",
       output: {
         command: "exec run",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "failed",
         error: {
           code: "missing_api_key",
@@ -77,12 +77,12 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
     assert.equal(runs[0].command, "fix");
     assert.equal(runs[0].status, "completed");
     assert.equal(runs[0].outcome, "confirmed");
-    assert.equal(runs[0].task, "fix pricing fallback bug");
+    assert.equal(runs[0].task, "fix metering fallback bug");
     assert.equal(runs[0].provider, "openai");
     assert.equal(runs[0].model, "gpt-5.4");
     assert.equal(runs[0].totalTokens, 30);
     assert.equal(runs[0].selectedTests, 2);
-    assert.deepEqual(runs[0].changedFiles, ["src/services/pricing.js"]);
+    assert.deepEqual(runs[0].changedFiles, ["src/services/metering.js"]);
     assert.equal(runs[0].memoryAssisted, true);
     assert.equal(runs[0].matchedPatternCount, 1);
     assert.equal(runs[0].memoryOutcome, "confirmed");
@@ -96,7 +96,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
 
     const handoffRun = insertRun(runtime.paths.dbFile, {
       command: "exec_handoff",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "codex",
         model: "default",
@@ -107,7 +107,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
       status: "completed",
       output: {
         command: "exec handoff",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "prepared",
         handoff: {
           provider: "codex",
@@ -119,7 +119,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
 
     const importRun = insertRun(runtime.paths.dbFile, {
       command: "exec_import",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "claude",
         model: "default",
@@ -130,7 +130,7 @@ test("listRuns filters by command and status and exposes outcome summaries", asy
       status: "completed",
       output: {
         command: "exec import",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "staged",
         artifactId: "patch-imported",
         artifact: {
@@ -172,7 +172,7 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
 
     const confirmedRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -182,7 +182,7 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         memoryAssistance: {
           matchedPatternCount: 1,
@@ -191,11 +191,11 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
         },
         artifactId: "patch-confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -208,7 +208,7 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
 
     const rolledBackRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4",
@@ -219,11 +219,11 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
       status: "failed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "rolled_back",
         artifactId: "patch-rolled-back",
         rollback: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         }
       },
       metrics: {
@@ -232,7 +232,7 @@ test("searchMemory returns typed run outcomes for confirmed and rolled back fixe
       }
     });
 
-    const matches = searchMemory(runtime.paths.dbFile, "pricing fallback", 10);
+    const matches = searchMemory(runtime.paths.dbFile, "metering fallback", 10);
 
     assert.equal(matches.length, 2);
     assert.equal(matches[0].type, "run_outcome");
@@ -254,7 +254,7 @@ test("runs and memory commands expose filtered summaries", async () => {
 
     const fixRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -264,14 +264,14 @@ test("runs and memory commands expose filtered summaries", async () => {
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -294,7 +294,7 @@ test("runs and memory commands expose filtered summaries", async () => {
     assert.equal(runsResult.runs[0].outcome, "confirmed");
 
     const memoryResult = await memorySearchCommand({
-      args: ["search", "pricing", "fallback"],
+      args: ["search", "metering", "fallback"],
       flags: {
         root: tempRoot,
         limit: 5
@@ -315,7 +315,7 @@ test("memory learning dedupes repeated identical confirmed fix outcomes", async 
     for (let index = 0; index < 2; index += 1) {
       const run = insertRun(runtime.paths.dbFile, {
         command: "fix",
-        input: "fix pricing fallback bug",
+        input: "fix metering fallback bug",
         metadata: {
           provider: "openai",
           model: "gpt-5.4"
@@ -325,14 +325,14 @@ test("memory learning dedupes repeated identical confirmed fix outcomes", async 
         status: "completed",
         output: {
           command: "fix",
-          task: "fix pricing fallback bug",
+          task: "fix metering fallback bug",
           status: "confirmed",
           apply: {
-            changedFiles: ["src/services/pricing.js"]
+            changedFiles: ["src/services/metering.js"]
           },
           stage: {
             request: {
-              selectedTests: ["test/services/pricing.test.js"]
+              selectedTests: ["test/services/metering.test.js"]
             }
           }
         },
@@ -344,7 +344,7 @@ test("memory learning dedupes repeated identical confirmed fix outcomes", async 
       });
     }
 
-    const matches = searchMemory(runtime.paths.dbFile, "pricing fallback", 10)
+    const matches = searchMemory(runtime.paths.dbFile, "metering fallback", 10)
       .filter((entry) => entry.type === "run_outcome");
     assert.equal(matches.length, 1);
   } finally {
@@ -359,7 +359,7 @@ test("relevant run patterns prefer confirmed memories over contradictory rollbac
 
     const confirmedRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -369,14 +369,14 @@ test("relevant run patterns prefer confirmed memories over contradictory rollbac
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -389,7 +389,7 @@ test("relevant run patterns prefer confirmed memories over contradictory rollbac
 
     const rollbackRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -399,10 +399,10 @@ test("relevant run patterns prefer confirmed memories over contradictory rollbac
       status: "failed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "rolled_back",
         rollback: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         }
       },
       metrics: {
@@ -411,7 +411,7 @@ test("relevant run patterns prefer confirmed memories over contradictory rollbac
       }
     });
 
-    const patterns = findRelevantRunPatterns(runtime.paths.dbFile, "pricing fallback", 5);
+    const patterns = findRelevantRunPatterns(runtime.paths.dbFile, "metering fallback", 5);
     assert.equal(patterns[0].outcome, "confirmed");
     assert.ok(patterns.some((entry) => entry.outcome === "rolled_back"));
   } finally {

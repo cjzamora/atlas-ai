@@ -8,7 +8,7 @@ import { testCommand } from "../src/commands/test.js";
 import { readPatchArtifact, writePatchArtifact } from "../src/core/patch-artifact.js";
 
 const sampleFixtureRoot = path.resolve("test/fixtures/sample-repo");
-const playgroundRoot = path.resolve("playgrounds/react-nest-demo");
+const tsFixtureRoot = path.resolve("test/fixtures/ts-graph-sample");
 
 test("test run executes selected JS fixture tests and persists validation results on the artifact", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-validation-js-"));
@@ -22,15 +22,15 @@ test("test run executes selected JS fixture tests and persists validation result
       id: "patch-js-validation",
       type: "patch",
       reviewOnly: true,
-      task: "validate checkout coupon flow",
+      task: "validate intake ticket flow",
       status: "staged",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
       patches: [],
-      rawOutput: "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+      rawOutput: "diff --git a/src/services/metering.js b/src/services/metering.js",
       selectedTests: [
-        "test/services/pricing.test.js",
-        "test/services/checkout.test.js"
+        "test/services/metering.test.js",
+        "test/services/intake.test.js"
       ],
       files: []
     };
@@ -63,24 +63,24 @@ test("test run executes selected TypeScript fixture tests through the artifact w
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-validation-ts-"));
 
   try {
-    const workingRoot = path.join(tempRoot, "react-nest-demo");
-    await fs.cp(playgroundRoot, workingRoot, { recursive: true });
+    const workingRoot = path.join(tempRoot, "ts-graph-sample");
+    await fs.cp(tsFixtureRoot, workingRoot, { recursive: true });
 
     const runtime = await ensureAtlasRuntime(workingRoot);
     const artifact = {
       id: "patch-ts-validation",
       type: "patch",
       reviewOnly: true,
-      task: "validate expired coupon checkout flow",
+      task: "validate rectangle area and perimeter math",
       status: "staged",
       createdAt: new Date().toISOString(),
       parseStatus: "parsed",
       patches: [],
-      rawOutput: "diff --git a/apps/api/src/checkout/checkout.service.ts b/apps/api/src/checkout/checkout.service.ts",
+      rawOutput: "diff --git a/src/area-calculator.ts b/src/area-calculator.ts",
       selectedTests: [
-        "tests/api/pricing.service.test.ts",
-        "tests/api/checkout.service.test.ts",
-        "tests/web/checkout-page.test.ts"
+        "tests/area-calculator.test.ts",
+        "tests/perimeter-calculator.test.ts",
+        "tests/shape-service.test.ts"
       ],
       files: []
     };

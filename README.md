@@ -48,30 +48,30 @@ OpenAI-backed commands default to `provider: openai` and `model: gpt-5.4` unless
 From the project root:
 
 ```bash
-node src/cli.js index --root playgrounds/react-nest-demo
-node src/cli.js ask "coupon discount pricing checkout" --root playgrounds/react-nest-demo
-node src/cli.js plan "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js context "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js prompt "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js exec prepare "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js exec handoff "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex
-node src/cli.js exec import "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex --file /path/to/codex-response.txt
-node src/cli.js fix "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js fix "fix expired coupons still applying at checkout" --rollback-on-fail --root playgrounds/react-nest-demo
-node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
-node src/cli.js patch show patch-<id> --root playgrounds/react-nest-demo
-node src/cli.js test run --artifact patch-<id> --root playgrounds/react-nest-demo
-node src/cli.js patch apply patch-<id> --root playgrounds/react-nest-demo
-node src/cli.js patch apply patch-<id> --confirm --root playgrounds/react-nest-demo
-node src/cli.js patch confirm patch-<id> --root playgrounds/react-nest-demo
-node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
-node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
-node src/cli.js runs --command fix --status completed --root playgrounds/react-nest-demo
-node src/cli.js memory search "pricing fallback" --root playgrounds/react-nest-demo
+node src/cli.js index --root playgrounds/holdout-js-eventbus
+node src/cli.js ask "subscribe publish event bus pubsub" --root playgrounds/holdout-js-eventbus
+node src/cli.js plan "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js context "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js prompt "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js exec prepare "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js exec run "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js exec handoff "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus --provider codex
+node src/cli.js exec import "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus --provider codex --file /path/to/codex-response.txt
+node src/cli.js fix "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js fix "fix events not delivered after unsubscribe" --rollback-on-fail --root playgrounds/holdout-js-eventbus
+node src/cli.js patch stage "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus
+node src/cli.js patch show patch-<id> --root playgrounds/holdout-js-eventbus
+node src/cli.js test run --artifact patch-<id> --root playgrounds/holdout-js-eventbus
+node src/cli.js patch apply patch-<id> --root playgrounds/holdout-js-eventbus
+node src/cli.js patch apply patch-<id> --confirm --root playgrounds/holdout-js-eventbus
+node src/cli.js patch confirm patch-<id> --root playgrounds/holdout-js-eventbus
+node src/cli.js patch rollback patch-<id> --root playgrounds/holdout-js-eventbus
+node src/cli.js test impacted "ttl cache get set evict" --root playgrounds/holdout-js-eventbus
+node src/cli.js runs --command fix --status completed --root playgrounds/holdout-js-eventbus
+node src/cli.js memory search "pricing fallback" --root playgrounds/holdout-js-eventbus
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json --report /tmp/retrieval-report.json --fail-under 0.8
-node src/cli.js eval retrieval --root playgrounds/commerce-app --spec evals/retrieval/commerce-app.spec.json --report archive/commerce-app-retrieval-report.json --check-report --fail-under 1
+node src/cli.js eval retrieval --root playgrounds/holdout-js-eventbus --spec evals/retrieval/holdout-js-eventbus.spec.json --report archive/holdout-js-eventbus-retrieval-report.json --check-report --fail-under 1
 ```
 
 ## Manual Codex / Claude Round-Trip
@@ -81,7 +81,7 @@ For manual execution environments such as Codex and Claude Code:
 1. Prepare a handoff bundle:
 
 ```bash
-node src/cli.js exec handoff "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex
+node src/cli.js exec handoff "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus --provider codex
 ```
 
 2. Paste the generated prompt into Codex or Claude Code and save the response to a local file.
@@ -89,56 +89,55 @@ node src/cli.js exec handoff "fix expired coupons still applying at checkout" --
 3. Import that response back into Atlas as a staged patch artifact:
 
 ```bash
-node src/cli.js exec import "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo --provider codex --file /path/to/response.txt
+node src/cli.js exec import "fix events not delivered after unsubscribe" --root playgrounds/holdout-js-eventbus --provider codex --file /path/to/response.txt
 ```
 
 4. Run the selected tests against the imported artifact:
 
 ```bash
-node src/cli.js test run --artifact patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js test run --artifact patch-<id> --root playgrounds/holdout-js-eventbus
 ```
 
 5. Apply and confirm the imported patch:
 
 ```bash
-node src/cli.js patch apply patch-<id> --confirm --root playgrounds/react-nest-demo
+node src/cli.js patch apply patch-<id> --confirm --root playgrounds/holdout-js-eventbus
 ```
 
 6. If confirmation fails, roll back explicitly:
 
 ```bash
-node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js patch rollback patch-<id> --root playgrounds/holdout-js-eventbus
 ```
 
 ## Included Fixtures
 
 ### `test/fixtures/sample-repo`
 
-Small deterministic fixture for automated tests.
+Small deterministic JS fixture for automated tests.
 
-### `playgrounds/react-nest-demo`
+### `test/fixtures/ts-graph-sample`
 
-Medium-sized React + Nest-style fixture for manual CLI testing.
+Small domain-neutral TypeScript fixture covering AST symbol extraction (class
+methods), constructor-injection call resolution across files, and the staged-test
+validation runner.
 
-It includes:
+### `playgrounds/holdout-*`
 
-- frontend pages and service clients
-- backend auth, checkout, pricing, coupon, and notifications modules
-- shared contracts
-- test files linked to the graph
+Held-out, deliberately heterogeneous fixtures used to measure that retrieval and
+impacted-test selection generalize across languages and structures the scoring was
+never tuned against (the scoring carries no domain vocabulary or naming conventions):
 
-### `playgrounds/commerce-app`
+- `holdout-python-tasks` — Python package, `tests/test_*.py`
+- `holdout-go-inventory` — Go modules, colocated `*_test.go`
+- `holdout-ruby-geometry` — Ruby `lib/` + RSpec `spec/*_spec.rb`
+- `holdout-rust-parser` — Rust crate, `tests/*_test.rs`
+- `holdout-js-eventbus` — flat ESM JavaScript, kebab-case, no framework suffixes
+- `holdout-web-dashboard` — frontend assets: HTML linking CSS/JS, CSS `@import`, SCSS `@use`
 
-Atlas-owned commerce SaaS fixture for committed kernel calibration.
-
-It includes:
-
-- auth and API-key guard modules
-- checkout, discount validation, catalog, and orders modules
-- shared webhook delivery and retry queue modules
-- provider-specific Stripe Connect and Stripe webhook modules
-- ledger mapper, service, and Inngest-style sync modules
-- direct and neighboring tests for retrieval and impacted-test ranking
+Each has a committed retrieval spec under `evals/retrieval/holdout-*.spec.json`.
+`holdout-js-eventbus` is the committed baseline / drift guard
+(`archive/holdout-js-eventbus-retrieval-report.json`).
 
 ## Testing
 
@@ -192,13 +191,13 @@ Run it with:
 node src/cli.js eval retrieval --root test/fixtures/sample-repo --spec /path/to/retrieval-spec.json
 ```
 
-Run the committed Atlas-owned commerce baseline with:
+Run the committed held-out baseline with:
 
 ```bash
 node src/cli.js eval retrieval \
-  --root playgrounds/commerce-app \
-  --spec evals/retrieval/commerce-app.spec.json \
-  --report archive/commerce-app-retrieval-report.json \
+  --root playgrounds/holdout-js-eventbus \
+  --spec evals/retrieval/holdout-js-eventbus.spec.json \
+  --report archive/holdout-js-eventbus-retrieval-report.json \
   --check-report \
   --fail-under 1
 ```
@@ -230,7 +229,7 @@ Implemented:
 
 - local runtime storage in `.atlas/`
 - SQLite-backed repo metadata and run ledger
-- JS/TS-oriented structured scanning with fallback extraction
+- TypeScript-AST scanning for JS/TS/JSX, plus dependency-light per-language symbol/import/call extraction for Python, Ruby, Rust, and Go, and asset-graph extraction for HTML (`<script>`/`<link>`), CSS/SCSS/LESS (`@import`/`@use`, selectors/mixins), and Vue/Svelte (heuristic fallback for other text files)
 - import/call/test graph edges
 - retrieval-backed planning
 - graph-backed impacted-test selection

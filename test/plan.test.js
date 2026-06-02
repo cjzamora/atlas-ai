@@ -23,23 +23,23 @@ test("plan artifact includes graph-backed selected tests and validation strategy
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const task = "fix pricing coupon discount bug";
+    const task = "fix metering ticket tally bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
     const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
 
     assert.equal(plan.validationStrategy.mode, "graph");
-    assert.ok(plan.selectedTests.includes("test/services/pricing.test.js"));
-    assert.ok(plan.selectedTests.includes("test/services/checkout.test.js"));
+    assert.ok(plan.selectedTests.includes("test/services/metering.test.js"));
+    assert.ok(plan.selectedTests.includes("test/services/intake.test.js"));
     assert.deepEqual(plan.likelyTests, plan.selectedTests);
-    assert.ok(plan.validationStrategy.directTests.includes("test/services/pricing.test.js"));
+    assert.ok(plan.validationStrategy.directTests.includes("test/services/metering.test.js"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("pricing-focused bug plans rank pricing evidence ahead of downstream checkout files", async () => {
+test("metering-focused bug plans rank metering evidence ahead of downstream intake files", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-ranking-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
@@ -49,14 +49,14 @@ test("pricing-focused bug plans rank pricing evidence ahead of downstream checko
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const task = "fix pricing fallback bug";
+    const task = "fix metering fallback bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
     const plan = buildPlanArtifact(task, classification, evidence.matches, impacted);
 
-    assert.equal(evidence.matches[0].path, "src/services/pricing.js");
-    assert.equal(plan.selectedTests[0], "test/services/pricing.test.js");
+    assert.equal(evidence.matches[0].path, "src/services/metering.js");
+    assert.equal(plan.selectedTests[0], "test/services/metering.test.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -74,7 +74,7 @@ test("plan artifact includes prior confirmed fix patterns as advisory memory", a
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -84,14 +84,14 @@ test("plan artifact includes prior confirmed fix patterns as advisory memory", a
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -102,7 +102,7 @@ test("plan artifact includes prior confirmed fix patterns as advisory memory", a
       }
     });
 
-    const task = "fix pricing fallback bug";
+    const task = "fix metering fallback bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -111,9 +111,9 @@ test("plan artifact includes prior confirmed fix patterns as advisory memory", a
 
     assert.equal(plan.priorPatterns.length, 1);
     assert.equal(plan.priorPatterns[0].outcome, "confirmed");
-    assert.ok(plan.priorPatterns[0].files.includes("src/services/pricing.js"));
-    assert.ok(plan.priorPatterns[0].tests.includes("test/services/pricing.test.js"));
-    assert.equal(plan.likelyFiles[0], "src/services/pricing.js");
+    assert.ok(plan.priorPatterns[0].files.includes("src/services/metering.js"));
+    assert.ok(plan.priorPatterns[0].tests.includes("test/services/metering.test.js"));
+    assert.equal(plan.likelyFiles[0], "src/services/metering.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -129,12 +129,15 @@ test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const before = searchEvidence(runtime.paths.dbFile, "fix fallback regression", 5);
-    assert.equal(before.matches[0].path, "src/controllers/checkout-controller.js");
+    // "ticket tally" is a genuine near-tie: metering.js (calculateTally) edges
+    // out intake.js (applyTicket) on lexical signal alone.
+    const before = searchEvidence(runtime.paths.dbFile, "ticket tally", 5);
+    assert.equal(before.matches[0].path, "src/services/metering.js");
+    assert.equal(before.memoryAssistance.retrievalBoostApplied, false);
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix ticket tally in intake",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -144,14 +147,14 @@ test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix ticket tally in intake",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/intake.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/intake.test.js"]
           }
         }
       },
@@ -162,8 +165,12 @@ test("retrieval ranking uses prior confirmed fix memory as a bounded tie-breaker
       }
     });
 
-    const after = searchEvidence(runtime.paths.dbFile, "fix fallback regression", 5);
-    assert.equal(after.matches[0].path, "src/services/pricing.js");
+    // A prior confirmed fix that touched intake.js acts as a bounded tie-breaker
+    // that lifts intake.js past the near-tied metering.js.
+    const after = searchEvidence(runtime.paths.dbFile, "ticket tally", 5);
+    assert.equal(after.memoryAssistance.retrievalBoostApplied, true);
+    assert.ok(after.memoryAssistance.boostedPaths.includes("src/services/intake.js"));
+    assert.equal(after.matches[0].path, "src/services/intake.js");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -180,7 +187,7 @@ test("retrieval ranking prefers service implementations over resolver wrappers f
       [
         "export class StripeConnectService {",
         "  listCharges() { return 'charges'; }",
-        "  startCheckoutSession() { return 'checkout'; }",
+        "  startCheckoutSession() { return 'intake'; }",
         "}"
       ].join("\n")
     );
@@ -209,7 +216,7 @@ test("retrieval ranking prefers service implementations over resolver wrappers f
 
     const evidence = searchEvidence(
       runtime.paths.dbFile,
-      "stripe connect payments checkout connected account list charges",
+      "stripe connect payments intake connected account list charges",
       5
     );
 
@@ -335,7 +342,7 @@ test("retrieval ranking prefers webhook service and queue implementations over r
   }
 });
 
-test("retrieval ranking prefers mapper and inngest implementations over xero wrappers for sync queries", async () => {
+test("retrieval ranking prefers implementation files over thin wrapper and type-only files for sync queries", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-plan-mapper-role-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
@@ -402,13 +409,21 @@ test("retrieval ranking prefers mapper and inngest implementations over xero wra
 
     const evidence = searchEvidence(runtime.paths.dbFile, "xero mapper sync inngest tenant webhook", 5);
 
-    assert.equal(evidence.matches[0].path, "src/modules/xero/xero.mapper.ts");
+    // Convention-free ranker: a real implementation (mapper/service/inngest) leads
+    // on lexical + structural signal; the thin resolver wrappers and the type-only
+    // model file do not win. No filename-suffix weighting is involved.
+    const implementations = [
+      "src/modules/xero/xero.mapper.ts",
+      "src/modules/xero/xero.service.ts",
+      "src/modules/xero/xero.inngest.ts"
+    ];
     assert.ok(
-      evidence.matches.slice(0, 3).some((match) => match.path === "src/modules/xero/xero.service.ts")
+      implementations.includes(evidence.matches[0].path),
+      `expected an implementation file first, got ${evidence.matches[0].path}`
     );
-    assert.ok(
-      evidence.matches.slice(0, 3).some((match) => match.path === "src/modules/xero/xero.inngest.ts")
-    );
+    const top3 = evidence.matches.slice(0, 3).map((match) => match.path);
+    assert.ok(!top3.includes("src/modules/xero/dashboard-xero.resolver.ts"));
+    assert.ok(!top3.includes("src/modules/xero/xero.model.ts"));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

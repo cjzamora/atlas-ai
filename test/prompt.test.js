@@ -24,7 +24,7 @@ test("prompt builder produces a model-ready execution prompt", async () => {
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const task = "fix pricing coupon discount bug";
+    const task = "fix metering ticket tally bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -40,8 +40,8 @@ test("prompt builder produces a model-ready execution prompt", async () => {
 
     assert.match(prompt, /# Atlas Execution Prompt/);
     assert.match(prompt, /## Task/);
-    assert.match(prompt, /src\/services\/pricing\.js/);
-    assert.match(prompt, /test\/services\/pricing\.test\.js/);
+    assert.match(prompt, /src\/services\/metering\.js/);
+    assert.match(prompt, /test\/services\/metering\.test\.js/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -59,7 +59,7 @@ test("prompt builder includes advisory prior successful patterns when available"
 
     const priorRun = insertRun(runtime.paths.dbFile, {
       command: "fix",
-      input: "fix pricing fallback bug",
+      input: "fix metering fallback bug",
       metadata: {
         provider: "openai",
         model: "gpt-5.4"
@@ -69,14 +69,14 @@ test("prompt builder includes advisory prior successful patterns when available"
       status: "completed",
       output: {
         command: "fix",
-        task: "fix pricing fallback bug",
+        task: "fix metering fallback bug",
         status: "confirmed",
         apply: {
-          changedFiles: ["src/services/pricing.js"]
+          changedFiles: ["src/services/metering.js"]
         },
         stage: {
           request: {
-            selectedTests: ["test/services/pricing.test.js"]
+            selectedTests: ["test/services/metering.test.js"]
           }
         }
       },
@@ -87,7 +87,7 @@ test("prompt builder includes advisory prior successful patterns when available"
       }
     });
 
-    const task = "fix pricing fallback bug";
+    const task = "fix metering fallback bug";
     const classification = classifyTask(task);
     const evidence = searchEvidence(runtime.paths.dbFile, task, 5);
     const impacted = selectImpactedTests(runtime.paths.dbFile, task, 5);
@@ -104,8 +104,8 @@ test("prompt builder includes advisory prior successful patterns when available"
 
     assert.match(prompt, /## Prior Successful Patterns/);
     assert.match(prompt, /confirmed/i);
-    assert.match(prompt, /src\/services\/pricing\.js/);
-    assert.match(prompt, /test\/services\/pricing\.test\.js/);
+    assert.match(prompt, /src\/services\/metering\.js/);
+    assert.match(prompt, /test\/services\/metering\.test\.js/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
