@@ -43,8 +43,24 @@ function formatHuman(value) {
     return formatPatchShowOutput(value);
   }
 
+  if (value.command === "patch apply") {
+    return formatPatchApplyOutput(value);
+  }
+
+  if (value.command === "patch confirm") {
+    return formatPatchConfirmOutput(value);
+  }
+
+  if (value.command === "patch rollback") {
+    return formatPatchRollbackOutput(value);
+  }
+
   if (value.command === "test impacted") {
     return formatTestOutput(value);
+  }
+
+  if (value.command === "test run") {
+    return formatTestRunOutput(value);
   }
 
   const lines = [];
@@ -219,12 +235,86 @@ function formatPatchShowOutput(value) {
     `Parse status: ${artifact.parseStatus || "unknown"}`,
     "",
     "Patch blocks:",
-    ...formatLines((artifact.patches || []).map((patch, index) => `${index + 1}. ${patch.kind}${patch.language ? ` (${patch.language})` : ""}`)),
-    "",
-    "Raw output:",
-    artifact.rawOutput || ""
+    ...formatLines((artifact.patches || []).map((patch, index) => `${index + 1}. ${patch.kind}${patch.language ? ` (${patch.language})` : ""}`))
   ];
+
+  if (artifact.validation) {
+    lines.push(
+      "",
+      "Validation:",
+      `- Status: ${artifact.validation.status || "unknown"}`,
+      `- Passed: ${artifact.validation.summary?.passed ?? 0}`,
+      `- Failed: ${artifact.validation.summary?.failed ?? 0}`,
+      `- Skipped: ${artifact.validation.summary?.skipped ?? 0}`
+    );
+  }
+
+  if (artifact.postApplyValidation) {
+    lines.push(
+      "",
+      "Post-apply validation:",
+      `- Status: ${artifact.postApplyValidation.status || "unknown"}`,
+      `- Passed: ${artifact.postApplyValidation.summary?.passed ?? 0}`,
+      `- Failed: ${artifact.postApplyValidation.summary?.failed ?? 0}`,
+      `- Skipped: ${artifact.postApplyValidation.summary?.skipped ?? 0}`
+    );
+  }
+
+  if (artifact.appliedAt || (artifact.appliedFiles || []).length > 0) {
+    lines.push(
+      "",
+      "Applied:",
+      `- At: ${artifact.appliedAt || "unknown"}`,
+      ...formatLines(artifact.appliedFiles)
+    );
+  }
+
+  if (artifact.rolledBackAt || (artifact.rolledBackFiles || []).length > 0) {
+    lines.push(
+      "",
+      "Rolled back:",
+      `- At: ${artifact.rolledBackAt || "unknown"}`,
+      ...formatLines(artifact.rolledBackFiles)
+    );
+  }
+
+  lines.push("", "Raw output:", artifact.rawOutput || "");
   return lines.join("\n");
+}
+
+function formatPatchApplyOutput(value) {
+  return [
+    `Artifact: ${value.artifactId || "unknown"}`,
+    `Task: ${value.task || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    "",
+    "Changed files:",
+    ...formatLines(value.changedFiles)
+  ].join("\n");
+}
+
+function formatPatchConfirmOutput(value) {
+  return [
+    `Artifact: ${value.artifactId || "unknown"}`,
+    `Task: ${value.task || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    "",
+    "Post-apply validation:",
+    `- Passed: ${value.postApplyValidation?.summary?.passed ?? 0}`,
+    `- Failed: ${value.postApplyValidation?.summary?.failed ?? 0}`,
+    `- Skipped: ${value.postApplyValidation?.summary?.skipped ?? 0}`
+  ].join("\n");
+}
+
+function formatPatchRollbackOutput(value) {
+  return [
+    `Artifact: ${value.artifactId || "unknown"}`,
+    `Task: ${value.task || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    "",
+    "Rolled back files:",
+    ...formatLines(value.changedFiles)
+  ].join("\n");
 }
 
 function formatTestOutput(value) {
@@ -241,6 +331,33 @@ function formatTestOutput(value) {
 
   if (value.message) {
     lines.push("", value.message);
+  }
+
+  return lines.join("\n");
+}
+
+function formatTestRunOutput(value) {
+  const lines = [
+    `Artifact: ${value.artifactId || "unknown"}`,
+    `Task: ${value.task || "unknown"}`,
+    `Status: ${value.status || "unknown"}`,
+    "",
+    "Summary:",
+    `- Passed: ${value.summary?.passed ?? 0}`,
+    `- Failed: ${value.summary?.failed ?? 0}`,
+    `- Skipped: ${value.summary?.skipped ?? 0}`,
+    "",
+    "Results:"
+  ];
+
+  for (const result of value.results || []) {
+    lines.push(`- ${result.path}: ${result.status} (${result.runner || "unknown"})`);
+    for (const testCase of result.cases || []) {
+      lines.push(`  - ${testCase.name}: ${testCase.status}`);
+    }
+    if (result.error?.message) {
+      lines.push(`  - Error: ${result.error.message}`);
+    }
   }
 
   return lines.join("\n");

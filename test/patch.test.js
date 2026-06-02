@@ -120,3 +120,580 @@ test("patch stage writes a review-only artifact and patch show returns it", asyn
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("patch apply writes validated unified diffs to disk and marks the artifact as applied", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-apply-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-validated-apply",
+      type: "patch",
+      reviewOnly: true,
+      task: "apply pricing discount clamp",
+      status: "validated",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [
+        {
+          kind: "diff",
+          language: "diff",
+          diff: [
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,6 +1,6 @@",
+            " export function calculateDiscount(coupon, subtotal) {",
+            "   if (!coupon || coupon.expired) {",
+            "     return 0;",
+            "   }",
+            " ",
+            "-  return Math.min(subtotal, coupon.amountOff || 0);",
+            "+  return Math.min(subtotal, coupon.amountOff);",
+            " }"
+          ].join("\n")
+        }
+      ],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        results: []
+      }
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const applied = await patchCommand({
+      args: ["apply", artifact.id],
+      flags: { root: workingRoot }
+    });
+
+    assert.equal(applied.ok, true);
+    assert.equal(applied.command, "patch apply");
+    assert.equal(applied.status, "applied");
+    assert.deepEqual(applied.changedFiles, ["src/services/pricing.js"]);
+
+    const updatedSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    assert.match(updatedSource, /Math\.min\(subtotal, coupon\.amountOff\)/);
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "applied");
+    assert.deepEqual(stored.appliedFiles, ["src/services/pricing.js"]);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch apply rejects artifacts that have not passed validation", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-apply-reject-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-unvalidated-apply",
+      type: "patch",
+      reviewOnly: true,
+      task: "reject unvalidated apply",
+      status: "staged",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [
+        {
+          kind: "diff",
+          language: "diff",
+          diff: [
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,6 +1,6 @@",
+            " export function calculateDiscount(coupon, subtotal) {",
+            "   if (!coupon || coupon.expired) {",
+            "     return 0;",
+            "   }",
+            " ",
+            "-  return Math.min(subtotal, coupon.amountOff || 0);",
+            "+  return Math.min(subtotal, coupon.amountOff);",
+            " }"
+          ].join("\n")
+        }
+      ],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: null
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    await assert.rejects(
+      () => patchCommand({
+        args: ["apply", artifact.id],
+        flags: { root: workingRoot }
+      }),
+      /must pass validation before apply/i
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch confirm reruns selected tests after apply and marks the artifact as confirmed", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-confirm-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-confirmed-apply",
+      type: "patch",
+      reviewOnly: true,
+      task: "confirm applied pricing patch",
+      status: "applied",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [],
+      rawOutput: "",
+      selectedTests: [
+        "test/services/pricing.test.js",
+        "test/services/checkout.test.js"
+      ],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 2, passed: 2, failed: 0, skipped: 0 },
+        results: []
+      },
+      appliedAt: new Date().toISOString(),
+      appliedFiles: ["src/services/pricing.js"]
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const confirmed = await patchCommand({
+      args: ["confirm", artifact.id],
+      flags: { root: workingRoot }
+    });
+
+    assert.equal(confirmed.ok, true);
+    assert.equal(confirmed.command, "patch confirm");
+    assert.equal(confirmed.status, "confirmed");
+    assert.equal(confirmed.postApplyValidation.status, "passed");
+    assert.equal(confirmed.postApplyValidation.summary.passed, 2);
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "confirmed");
+    assert.equal(stored.postApplyValidation.status, "passed");
+    assert.ok(stored.confirmedAt);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch confirm marks the artifact when post-apply validation fails", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-confirm-fail-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    await fs.writeFile(
+      path.join(workingRoot, "test/services/pricing.test.js"),
+      [
+        "export function pricingTestCase() {",
+        "  throw new Error('pricing regression');",
+        "}"
+      ].join("\n")
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-confirm-failed-validation",
+      type: "patch",
+      reviewOnly: true,
+      task: "flag failed post-apply validation",
+      status: "applied",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        results: []
+      },
+      appliedAt: new Date().toISOString(),
+      appliedFiles: ["src/services/pricing.js"]
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const confirmed = await patchCommand({
+      args: ["confirm", artifact.id],
+      flags: { root: workingRoot }
+    });
+
+    assert.equal(confirmed.ok, true);
+    assert.equal(confirmed.command, "patch confirm");
+    assert.equal(confirmed.status, "apply_failed_validation");
+    assert.equal(confirmed.postApplyValidation.status, "failed");
+    assert.equal(confirmed.postApplyValidation.summary.failed, 1);
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "apply_failed_validation");
+    assert.equal(stored.postApplyValidation.status, "failed");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch apply stores file snapshots that patch rollback can restore", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-rollback-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const originalSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    const artifact = {
+      id: "patch-rollback-success",
+      type: "patch",
+      reviewOnly: true,
+      task: "rollback pricing patch",
+      status: "validated",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [
+        {
+          kind: "diff",
+          language: "diff",
+          diff: [
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,6 +1,6 @@",
+            " export function calculateDiscount(coupon, subtotal) {",
+            "   if (!coupon || coupon.expired) {",
+            "     return 0;",
+            "   }",
+            " ",
+            "-  return Math.min(subtotal, coupon.amountOff || 0);",
+            "+  return Math.min(subtotal, coupon.amountOff);",
+            " }"
+          ].join("\n")
+        }
+      ],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        results: []
+      },
+      postApplyValidation: null,
+      appliedAt: null,
+      appliedFiles: [],
+      confirmedAt: null
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const applied = await patchCommand({
+      args: ["apply", artifact.id],
+      flags: { root: workingRoot }
+    });
+
+    assert.equal(applied.status, "applied");
+    assert.equal(applied.artifact.fileSnapshots.length, 1);
+    assert.equal(applied.artifact.fileSnapshots[0].path, "src/services/pricing.js");
+    assert.equal(applied.artifact.fileSnapshots[0].before, originalSource);
+
+    const rolledBack = await patchCommand({
+      args: ["rollback", artifact.id],
+      flags: { root: workingRoot }
+    });
+
+    assert.equal(rolledBack.ok, true);
+    assert.equal(rolledBack.command, "patch rollback");
+    assert.equal(rolledBack.status, "rolled_back");
+    assert.deepEqual(rolledBack.changedFiles, ["src/services/pricing.js"]);
+
+    const restoredSource = await fs.readFile(path.join(workingRoot, "src/services/pricing.js"), "utf8");
+    assert.equal(restoredSource, originalSource);
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "rolled_back");
+    assert.ok(stored.rolledBackAt);
+    assert.deepEqual(stored.rolledBackFiles, ["src/services/pricing.js"]);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch rollback rejects artifacts that were never applied", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-rollback-reject-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-rollback-reject",
+      type: "patch",
+      reviewOnly: true,
+      task: "reject rollback",
+      status: "validated",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [],
+      rawOutput: "",
+      selectedTests: [],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 0, passed: 0, failed: 0, skipped: 0 },
+        results: []
+      },
+      postApplyValidation: null,
+      appliedAt: null,
+      appliedFiles: [],
+      confirmedAt: null
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    await assert.rejects(
+      () => patchCommand({
+        args: ["rollback", artifact.id],
+        flags: { root: workingRoot }
+      }),
+      /must be applied or failed validation before rollback/i
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch apply --confirm applies the patch and marks the artifact confirmed when post-apply validation passes", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-apply-confirm-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-apply-confirm-success",
+      type: "patch",
+      reviewOnly: true,
+      task: "apply and confirm pricing patch",
+      status: "validated",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [
+        {
+          kind: "diff",
+          language: "diff",
+          diff: [
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,6 +1,6 @@",
+            " export function calculateDiscount(coupon, subtotal) {",
+            "   if (!coupon || coupon.expired) {",
+            "     return 0;",
+            "   }",
+            " ",
+            "-  return Math.min(subtotal, coupon.amountOff || 0);",
+            "+  return Math.min(subtotal, coupon.amountOff);",
+            " }"
+          ].join("\n")
+        }
+      ],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        results: []
+      },
+      postApplyValidation: null,
+      appliedAt: null,
+      appliedFiles: [],
+      confirmedAt: null,
+      fileSnapshots: [],
+      rolledBackAt: null,
+      rolledBackFiles: []
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const result = await patchCommand({
+      args: ["apply", artifact.id],
+      flags: { root: workingRoot, confirm: true }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.command, "patch apply");
+    assert.equal(result.status, "confirmed");
+    assert.equal(result.postApplyValidation.status, "passed");
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "confirmed");
+    assert.equal(stored.postApplyValidation.status, "passed");
+    assert.ok(stored.appliedAt);
+    assert.ok(stored.confirmedAt);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch apply --confirm returns a failed-validation status when confirmation fails", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-patch-apply-confirm-fail-"));
+
+  try {
+    const workingRoot = path.join(tempRoot, "sample-repo");
+    await fs.cp(fixtureRoot, workingRoot, { recursive: true });
+
+    await fs.writeFile(
+      path.join(workingRoot, "test/services/pricing.test.js"),
+      [
+        "export function pricingTestCase() {",
+        "  throw new Error('pricing regression');",
+        "}"
+      ].join("\n")
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const artifact = {
+      id: "patch-apply-confirm-fail",
+      type: "patch",
+      reviewOnly: true,
+      task: "apply and fail confirmation",
+      status: "validated",
+      createdAt: new Date().toISOString(),
+      parseStatus: "parsed",
+      patches: [
+        {
+          kind: "diff",
+          language: "diff",
+          diff: [
+            "diff --git a/src/services/pricing.js b/src/services/pricing.js",
+            "--- a/src/services/pricing.js",
+            "+++ b/src/services/pricing.js",
+            "@@ -1,6 +1,6 @@",
+            " export function calculateDiscount(coupon, subtotal) {",
+            "   if (!coupon || coupon.expired) {",
+            "     return 0;",
+            "   }",
+            " ",
+            "-  return Math.min(subtotal, coupon.amountOff || 0);",
+            "+  return Math.min(subtotal, coupon.amountOff);",
+            " }"
+          ].join("\n")
+        }
+      ],
+      rawOutput: "",
+      selectedTests: ["test/services/pricing.test.js"],
+      files: [],
+      validation: {
+        status: "passed",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        results: []
+      },
+      postApplyValidation: null,
+      appliedAt: null,
+      appliedFiles: [],
+      confirmedAt: null,
+      fileSnapshots: [],
+      rolledBackAt: null,
+      rolledBackFiles: []
+    };
+
+    await fs.writeFile(
+      path.join(runtime.paths.artifactsDir, `${artifact.id}.json`),
+      `${JSON.stringify(artifact, null, 2)}\n`
+    );
+
+    const result = await patchCommand({
+      args: ["apply", artifact.id],
+      flags: { root: workingRoot, confirm: true }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.command, "patch apply");
+    assert.equal(result.status, "apply_failed_validation");
+    assert.equal(result.postApplyValidation.status, "failed");
+
+    const stored = JSON.parse(
+      await fs.readFile(path.join(runtime.paths.artifactsDir, `${artifact.id}.json`), "utf8")
+    );
+    assert.equal(stored.status, "apply_failed_validation");
+    assert.equal(stored.postApplyValidation.status, "failed");
+    assert.ok(stored.appliedAt);
+    assert.equal(stored.confirmedAt, null);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

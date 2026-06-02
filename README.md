@@ -25,7 +25,11 @@ It is intentionally local-first and dependency-light.
 - `atlas exec run "<task>"`
 - `atlas patch stage "<task>"`
 - `atlas patch show <artifact-id>`
+- `atlas patch apply <artifact-id>`
+- `atlas patch confirm <artifact-id>`
+- `atlas patch rollback <artifact-id>`
 - `atlas test impacted "<query>"`
+- `atlas test run --artifact <artifact-id>`
 - `atlas runs`
 - `atlas memory search "<query>"`
 - `atlas cost report`
@@ -46,6 +50,11 @@ node src/cli.js exec prepare "fix expired coupons still applying at checkout" --
 node src/cli.js exec run "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js patch stage "fix expired coupons still applying at checkout" --root playgrounds/react-nest-demo
 node src/cli.js patch show patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js test run --artifact patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js patch apply patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js patch apply patch-<id> --confirm --root playgrounds/react-nest-demo
+node src/cli.js patch confirm patch-<id> --root playgrounds/react-nest-demo
+node src/cli.js patch rollback patch-<id> --root playgrounds/react-nest-demo
 node src/cli.js test impacted "pricing coupon checkout" --root playgrounds/react-nest-demo
 ```
 
@@ -107,11 +116,16 @@ Implemented:
 - model-ready prompt and execution request generation
 - live OpenAI execution request/response logging
 - review-only patch staging artifacts under `.atlas/artifacts`
+- staged patch validation execution with artifact-backed result persistence
+- validated unified-diff application for staged artifacts
+- post-apply confirmation by rerunning selected tests
+- rollback support using pre-apply file snapshots
+- optional `patch apply --confirm` convenience path that preserves the same artifact states
 
 Not implemented yet:
 
 - patch application
-- retry/validation loops
+- retry loops
 - semantic embeddings
 - true AST or tree-sitter parsing
 - team/shared memory

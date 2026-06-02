@@ -72,6 +72,16 @@ export async function readPatchArtifact(artifactsDir, artifactId) {
   }
 }
 
+export async function updatePatchArtifact(artifactsDir, artifactId, updater) {
+  const current = await readPatchArtifact(artifactsDir, artifactId);
+  const updated = typeof updater === "function"
+    ? await updater(structuredClone(current))
+    : { ...current, ...updater };
+
+  await writePatchArtifact(artifactsDir, updated);
+  return updated;
+}
+
 export function buildPatchArtifact({
   task,
   request,
@@ -100,7 +110,15 @@ export function buildPatchArtifact({
     rawOutput: parsed.rawOutput,
     usage: usage || null,
     selectedTests: request?.selectedTests || [],
-    files: request?.files || []
+    files: request?.files || [],
+    validation: null,
+    postApplyValidation: null,
+    appliedAt: null,
+    appliedFiles: [],
+    confirmedAt: null,
+    fileSnapshots: [],
+    rolledBackAt: null,
+    rolledBackFiles: []
   };
 }
 
