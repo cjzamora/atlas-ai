@@ -9,6 +9,8 @@ import { upsertFiles } from "../src/core/store.js";
 import { searchEvidence, hybridSearchEvidence } from "../src/core/retrieval.js";
 import { buildEmbeddingIndex } from "../src/core/embedding-index.js";
 import { stubEmbeddingAdapter } from "../src/adapters/embeddings/stub.js";
+import { indexCommand } from "../src/commands/index.js";
+import { querySql } from "../src/core/sqlite.js";
 
 test("hybrid retrieval surfaces a concept-gap match that lexical alone misses", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-hybrid-"));
@@ -85,6 +87,34 @@ test("hybrid retrieval falls back to lexical when no adapter is given", async ()
     const hybrid = await hybridSearchEvidence(runtime.paths.dbFile, "tokenize expression", 5, null);
     assert.equal(hybrid.mode, "lexical");
     assert.equal(hybrid.matches[0].path, "src/parser.js");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("atlas index builds the embedding index when enabled with an available adapter", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-index-embed-"));
+  try {
+    const workingRoot = path.join(tempRoot, "repo");
+    await fs.mkdir(path.join(workingRoot, "src"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, ".atlas"), { recursive: true });
+    // Pre-seed config to enable embeddings via the (test-registered) stub provider.
+    await fs.writeFile(
+      path.join(workingRoot, ".atlas", "config.json"),
+      JSON.stringify({ version: 1, embeddings: { enabled: true, provider: "stub" } }, null, 2)
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "widget.js"),
+      "export function renderWidget() {\n  return 'widget';\n}"
+    );
+
+    const result = await indexCommand({ flags: { root: workingRoot } });
+    assert.equal(result.embeddings.enabled, true);
+    assert.equal(result.embeddings.available, true);
+    assert.ok(result.embeddings.embedded >= 1);
+
+    const rows = querySql(path.join(workingRoot, ".atlas", "atlas.sqlite"), "select count(*) as n from embeddings;");
+    assert.ok(Number(rows[0].n) >= 1, "embeddings table should be populated");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

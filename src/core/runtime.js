@@ -33,7 +33,8 @@ export async function ensureAtlasRuntime(rootFlag) {
           version: 1,
           createdAt: new Date().toISOString(),
           rootDir,
-          model: { provider: "openai", model: "gpt-5.4" }
+          model: { provider: "openai", model: "gpt-5.4" },
+          embeddings: { enabled: false, provider: "local" }
         },
         null,
         2

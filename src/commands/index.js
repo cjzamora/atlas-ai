@@ -2,6 +2,9 @@ import { ensureAtlasRuntime } from "../core/runtime.js";
 import { createRunLogger } from "../core/run-log.js";
 import { getIndexSnapshot, upsertFiles, upsertRunSummaries } from "../core/store.js";
 import { scanRepository } from "../core/scanner.js";
+import { buildEmbeddingIndex } from "../core/embedding-index.js";
+import { resolveEmbeddingAdapter } from "../adapters/embeddings/index.js";
+import "../adapters/embeddings/local.js";
 
 export async function indexCommand({ flags }) {
   const runtime = await ensureAtlasRuntime(flags.root);
@@ -9,6 +12,13 @@ export async function indexCommand({ flags }) {
   const scan = await scanRepository(runtime.rootDir);
   upsertFiles(runtime.paths.dbFile, scan.files);
   const changeSummary = summarizeChanges(previousIndex.files, scan.files);
+
+  // Build the semantic vector index when embeddings are enabled AND an embedder is
+  // available; otherwise this is a no-op and retrieval stays lexical-only.
+  const embeddingAdapter = await resolveEmbeddingAdapter(runtime.config?.embeddings);
+  const embeddingIndex = embeddingAdapter
+    ? await buildEmbeddingIndex({ dbFile: runtime.paths.dbFile, files: scan.files, adapter: embeddingAdapter })
+    : { embedded: 0, reused: 0, total: scan.files.length, model: null };
 
   const logger = createRunLogger(runtime.paths.dbFile);
   const run = logger.startRun({
@@ -53,6 +63,13 @@ export async function indexCommand({ flags }) {
     indexedCallEdges: scan.files.reduce((count, file) => count + file.calls.length, 0),
     indexedRelationshipEdges: scan.files.reduce((count, file) => count + file.relationships.length, 0),
     changeSummary,
+    embeddings: {
+      enabled: Boolean(runtime.config?.embeddings?.enabled),
+      available: Boolean(embeddingAdapter),
+      model: embeddingIndex.model,
+      embedded: embeddingIndex.embedded,
+      reused: embeddingIndex.reused
+    },
     topFiles: scan.files.slice(0, 10).map((file) => ({
       path: file.path,
       language: file.language,
