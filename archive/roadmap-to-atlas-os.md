@@ -121,6 +121,35 @@ JS-style import extraction from their script block. Verified by a held-out front
 theme.scss `@use`→base.css all resolve; evidence hit rate 1.00. (TS/TSX/JSX already had full
 TypeScript-AST extraction and are unchanged.)
 
+**Real-repo validation (2026-06-03) — first run on an external, never-tuned-against repo.** Running the
+full pipeline on a private NestJS payments repo (`shoppable-ai/pay`, 296 files / 934 symbols) surfaced
+two things the held-out fixtures (all stuck at 1.00) structurally could not:
+
+1. **A real kernel bug, now fixed (PR #4, `c987f93`).** `executeSql` shells out to the `sqlite3` CLI via
+   `spawnSync`, whose default stdout cap is 1 MB. Embeddings persist as JSON-text vectors, so the
+   `select path, vector from embeddings` read (≈2 MB+ at this repo's scale) overflowed the buffer →
+   `spawnSync` returned `ENOBUFS` → `executeSql` threw → `vectorSearch`'s `catch` swallowed it and
+   returned `[]`. Hybrid retrieval **silently fell back to lexical-only on exactly the repos large enough
+   to need it.** The fixtures' sub-1 MB vector tables hid it. Fix: `maxBuffer: 256 MB` + surface
+   `result.error`; regression test round-trips a >1 MB result set.
+2. **The first measured hybrid lift.** With the bug fixed, a 5-case labeled A/B (`eval retrieval --ab`,
+   top-5, ground-truth implementation files verified by hand):
+
+   | mode | evidence hit-rate | evidence avg rank |
+   |---|---|---|
+   | lexical | 0.60 | 4.67 |
+   | **hybrid** | **0.80** | **2.50** |
+
+   Per case: `xero webhook signature verification` lexical **miss → hybrid hit @3** (lexical's top-5 was
+   all `.model.ts`/`.resolver.ts`; vector found `webhook.utils.ts`, the actual `createHmac` signer);
+   `stripe webhook handler` **@5 → @1**; `api key auth guard` **@4 → @3**; `stripe connect checkout`
+   **@5 → @3**; `merchant onboarding` **miss → miss** (honest limit: the file is `transfermate-*`, a
+   vendor name no lexical *or* semantic signal bridges from "merchant onboarding"). Hybrid improved or
+   held every case it could and recovered one of two lexical misses — the precision problem (type/model
+   files outranking implementations) is real, and embeddings measurably dent it. This is the eval-gated
+   evidence that embeddings now *earn* their seam; broadening the labeled-repo set is the path to a
+   default-on flip.
+
 ## The signal rework: delete / keep / replace
 
 This is the heart of the north star, made concrete and auditable. **No domain convention survives as a
@@ -328,13 +357,17 @@ Sequencing: **#1 first** → **#2** (measures #1); **#3** supports #1 for non-JS
 
 - **Per-repo domain config / heuristic tables** — explicit **non-goal**. Relocating conventions into
   config contradicts the north star; do not build it.
-- **Semantic embeddings — BUILT (optional, off by default), on branch `feat/hybrid-vector-retrieval`.**
+- **Semantic embeddings — BUILT (optional, off by default), merged to `main` (PRs #3, #4).**
   The deterministic repo-derived backbone shipped first; then hybrid lexical+vector retrieval was added
   behind seams (embedding adapter / chunk-keyed store / `vectorSearch` / `fuseRankings`) with a small
   **optional** local embedder (`@huggingface/transformers`, lazy + optionalDependency) and a deterministic
   test stub. The discipline evolved from "eval-before-embeddings" to **"eval-gated embeddings"**: ships
   off by default; `atlas eval retrieval --ab` measures lexical-vs-hybrid lift on a concept-gap semantic
   spec; promote to on-by-default only on demonstrated lift. Design: `docs/superpowers/specs/2026-06-03-hybrid-vector-retrieval-design.md`.
+  **First real-repo lift now measured (2026-06-03)** — see "Real-repo validation" below: hybrid beat
+  lexical 0.80 vs 0.60 evidence hit-rate (avg rank 2.50 vs 4.67) on a never-tuned-against NestJS payments
+  repo. That is the first evidence the gate was waiting for; a default-on flip still wants more labeled
+  repos before flipping for everyone.
   Still deferred behind the same seams (eval-gated): per-symbol chunks, an ANN index, a hosted API embedder.
 - **Team / shared memory** — README defer; kernel is single-user/local.
 - **SQLite FTS5 retrieval scaling** (v2 P2.8) — only at large-repo scale.
