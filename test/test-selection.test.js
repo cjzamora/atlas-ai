@@ -161,73 +161,73 @@ test("impacted test selection prefers direct structural tests over broad umbrell
   }
 });
 
-test("impacted test selection prefers direct auth service tests over broad neighboring service tests", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-auth-ranking-"));
+test("impacted test selection prefers the directly-matched entity test over neighboring entity tests", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-entity-ranking-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "auth"), { recursive: true });
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "apps"), { recursive: true });
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "customers"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "session"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "catalog"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "registry"), { recursive: true });
     await fs.mkdir(path.join(workingRoot, "test", "modules"), { recursive: true });
 
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "auth", "app-auth.service.ts"),
+      path.join(workingRoot, "src", "modules", "session", "session.core.ts"),
       [
-        "export class AppAuthService {",
-        "  getCurrentAppApiKey() { return 'key'; }",
+        "export class SessionCore {",
+        "  issueCurrentSessionToken() { return 'token'; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "auth", "app-auth.guard.ts"),
+      path.join(workingRoot, "src", "modules", "session", "session.gate.ts"),
       [
-        "import { AppAuthService } from './app-auth.service';",
-        "export class AppAuthGuard {",
-        "  constructor(private readonly auth: AppAuthService) {}",
-        "  authorizeCurrentApp() { return this.auth.getCurrentAppApiKey(); }",
+        "import { SessionCore } from './session.core';",
+        "export class SessionGate {",
+        "  constructor(private readonly sessions: SessionCore) {}",
+        "  authorizeCurrentSession() { return this.sessions.issueCurrentSessionToken(); }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "apps", "apps.service.ts"),
+      path.join(workingRoot, "src", "modules", "catalog", "catalog.core.ts"),
       [
-        "export class AppsService {",
-        "  listCurrentApps() { return []; }",
+        "export class CatalogCore {",
+        "  listCurrentCatalogItems() { return []; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "src", "modules", "customers", "customers.service.ts"),
+      path.join(workingRoot, "src", "modules", "registry", "registry.core.ts"),
       [
-        "export class CustomersService {",
-        "  listCustomers() { return []; }",
+        "export class RegistryCore {",
+        "  listRegistryEntries() { return []; }",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test", "modules", "app-auth.service.spec.ts"),
+      path.join(workingRoot, "test", "modules", "session.core.spec.ts"),
       [
-        "import { AppAuthService } from '../../src/modules/auth/app-auth.service.ts';",
-        "export function appAuthServiceSpec() {",
-        "  return new AppAuthService().getCurrentAppApiKey();",
+        "import { SessionCore } from '../../src/modules/session/session.core.ts';",
+        "export function sessionCoreSpec() {",
+        "  return new SessionCore().issueCurrentSessionToken();",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test", "modules", "apps.service.spec.ts"),
+      path.join(workingRoot, "test", "modules", "catalog.core.spec.ts"),
       [
-        "import { AppsService } from '../../src/modules/apps/apps.service.ts';",
-        "export function appsServiceSpec() {",
-        "  return new AppsService().listCurrentApps();",
+        "import { CatalogCore } from '../../src/modules/catalog/catalog.core.ts';",
+        "export function catalogCoreSpec() {",
+        "  return new CatalogCore().listCurrentCatalogItems();",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test", "modules", "customers.service.spec.ts"),
+      path.join(workingRoot, "test", "modules", "registry.core.spec.ts"),
       [
-        "import { CustomersService } from '../../src/modules/customers/customers.service.ts';",
-        "export function customersServiceSpec() {",
-        "  return new CustomersService().listCustomers();",
+        "import { RegistryCore } from '../../src/modules/registry/registry.core.ts';",
+        "export function registryCoreSpec() {",
+        "  return new RegistryCore().listRegistryEntries();",
         "}"
       ].join("\n")
     );
@@ -236,8 +236,8 @@ test("impacted test selection prefers direct auth service tests over broad neigh
     const scan = await scanRepository(workingRoot);
     upsertFiles(runtime.paths.dbFile, scan.files);
 
-    const impacted = selectImpactedTests(runtime.paths.dbFile, "api key auth current app guard service", 5);
-    assert.equal(impacted.tests[0].path, "test/modules/app-auth.service.spec.ts");
+    const impacted = selectImpactedTests(runtime.paths.dbFile, "session token current authorize gate core", 5);
+    assert.equal(impacted.tests[0].path, "test/modules/session.core.spec.ts");
     assert.equal(
       impacted.impactedFiles.some((filePath) => /(^|\/)(test|tests|__tests__)\//.test(filePath) || /\.(test|spec)\./.test(filePath)),
       false
@@ -247,12 +247,12 @@ test("impacted test selection prefers direct auth service tests over broad neigh
   }
 });
 
-test("impacted test selection prefers same-entity validation tests over neighboring validation tests", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-validation-entity-ranking-"));
+test("impacted test selection prefers same-entity rules tests over neighboring rules tests", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-test-rules-entity-ranking-"));
   try {
     const workingRoot = path.join(tempRoot, "sample-repo");
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "transfermate-beneficiaries"), { recursive: true });
-    await fs.mkdir(path.join(workingRoot, "src", "modules", "transfermate-bank-accounts"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "directory-contacts"), { recursive: true });
+    await fs.mkdir(path.join(workingRoot, "src", "modules", "directory-terminals"), { recursive: true });
     await fs.mkdir(path.join(workingRoot, "test", "modules"), { recursive: true });
 
     await fs.writeFile(
@@ -260,12 +260,12 @@ test("impacted test selection prefers same-entity validation tests over neighbor
         workingRoot,
         "src",
         "modules",
-        "transfermate-beneficiaries",
-        "transfermate-beneficiary.validation.ts"
+        "directory-contacts",
+        "directory-contact.rules.ts"
       ),
       [
-        "export function validateTransfermateBeneficiaryCountry() {",
-        "  return 'beneficiary-country';",
+        "export function checkDirectoryContactRegion() {",
+        "  return 'contact-region';",
         "}"
       ].join("\n")
     );
@@ -274,12 +274,12 @@ test("impacted test selection prefers same-entity validation tests over neighbor
         workingRoot,
         "src",
         "modules",
-        "transfermate-bank-accounts",
-        "transfermate-bank-account.validation.ts"
+        "directory-terminals",
+        "directory-terminal.rules.ts"
       ),
       [
-        "export function validateTransfermateBankAccountNumberCountry() {",
-        "  return 'account-number-country';",
+        "export function checkDirectoryTerminalAddressPortRegion() {",
+        "  return 'address-port-region';",
         "}"
       ].join("\n")
     );
@@ -288,31 +288,31 @@ test("impacted test selection prefers same-entity validation tests over neighbor
         workingRoot,
         "src",
         "modules",
-        "transfermate-bank-accounts",
-        "dashboard-transfermate-bank-account.resolver.ts"
+        "directory-terminals",
+        "proxy-directory-terminal.gateway.ts"
       ),
       [
-        "import { validateTransfermateBankAccountNumberCountry } from './transfermate-bank-account.validation';",
-        "export function dashboardTransfermateBankAccountResolver() {",
-        "  return validateTransfermateBankAccountNumberCountry();",
+        "import { checkDirectoryTerminalAddressPortRegion } from './directory-terminal.rules';",
+        "export function proxyDirectoryTerminalGateway() {",
+        "  return checkDirectoryTerminalAddressPortRegion();",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test", "modules", "transfermate-beneficiary.validation.spec.ts"),
+      path.join(workingRoot, "test", "modules", "directory-contact.rules.spec.ts"),
       [
-        "import { validateTransfermateBeneficiaryCountry } from '../../src/modules/transfermate-beneficiaries/transfermate-beneficiary.validation.ts';",
-        "export function transfermateBeneficiaryValidationSpec() {",
-        "  return validateTransfermateBeneficiaryCountry();",
+        "import { checkDirectoryContactRegion } from '../../src/modules/directory-contacts/directory-contact.rules.ts';",
+        "export function directoryContactRulesSpec() {",
+        "  return checkDirectoryContactRegion();",
         "}"
       ].join("\n")
     );
     await fs.writeFile(
-      path.join(workingRoot, "test", "modules", "transfermate-bank-account.validation.spec.ts"),
+      path.join(workingRoot, "test", "modules", "directory-terminal.rules.spec.ts"),
       [
-        "import { validateTransfermateBankAccountNumberCountry } from '../../src/modules/transfermate-bank-accounts/transfermate-bank-account.validation.ts';",
-        "export function transfermateBankAccountValidationSpec() {",
-        "  return validateTransfermateBankAccountNumberCountry();",
+        "import { checkDirectoryTerminalAddressPortRegion } from '../../src/modules/directory-terminals/directory-terminal.rules.ts';",
+        "export function directoryTerminalRulesSpec() {",
+        "  return checkDirectoryTerminalAddressPortRegion();",
         "}"
       ].join("\n")
     );
@@ -323,11 +323,11 @@ test("impacted test selection prefers same-entity validation tests over neighbor
 
     const impacted = selectImpactedTests(
       runtime.paths.dbFile,
-      "transfermate beneficiary validation account number country",
+      "directory contact rules address port region",
       5
     );
 
-    assert.equal(impacted.tests[0].path, "test/modules/transfermate-beneficiary.validation.spec.ts");
+    assert.equal(impacted.tests[0].path, "test/modules/directory-contact.rules.spec.ts");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
