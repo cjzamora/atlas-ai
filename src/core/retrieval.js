@@ -1,5 +1,7 @@
 import { querySql } from "./sqlite.js";
 import { findRelevantRunPatterns } from "./store.js";
+import { fuseRankings } from "./rank-fusion.js";
+import { vectorSearch } from "./vector-store.js";
 
 // General, domain-agnostic scoring weights.
 //
@@ -29,13 +31,77 @@ const WEIGHTS = {
   testEvidenceFactor: 0.5
 };
 
+// Lexical retrieval (unchanged contract): IDF-weighted token overlap + structural
+// centrality. Synchronous; the public entry point used everywhere by default.
 export function searchEvidence(dbFile, query, limit) {
   const safeLimit = Number.isFinite(limit) ? limit : 5;
-  const tokens = tokenize(query);
-  if (tokens.length === 0) {
+  const candidates = gatherCandidates(dbFile, query);
+  if (candidates.tokens.length === 0) {
     return { matches: [] };
   }
+  const matches = candidates.lexicalRanked
+    .slice(0, Math.max(1, safeLimit))
+    .map((path) => candidates.matchByPath.get(path));
+  return { matches, memoryAssistance: candidates.memoryAssistance };
+}
+
+// Hybrid retrieval: fuse the lexical ranking with a semantic vector ranking via
+// reciprocal rank fusion. Degrades to lexical-only when no embedding adapter is
+// available or no vectors are indexed. Async because embedding the query is async.
+export async function hybridSearchEvidence(dbFile, query, limit, adapter = null) {
+  const safeLimit = Number.isFinite(limit) ? limit : 5;
+  const candidates = gatherCandidates(dbFile, query);
+  if (candidates.tokens.length === 0) {
+    return { matches: [], mode: "lexical", memoryAssistance: candidates.memoryAssistance };
+  }
+
+  const take = Math.max(safeLimit * 4, 20);
+  let vectorRanked = [];
+  if (adapter) {
+    try {
+      const [queryVector] = await adapter.embed([query]);
+      if (queryVector && queryVector.length > 0) {
+        vectorRanked = vectorSearch(dbFile, queryVector, take).map((hit) => hit.path);
+      }
+    } catch {
+      vectorRanked = [];
+    }
+  }
+
+  if (vectorRanked.length === 0) {
+    const matches = candidates.lexicalRanked
+      .slice(0, Math.max(1, safeLimit))
+      .map((path) => candidates.matchByPath.get(path))
+      .filter(Boolean);
+    return { matches, mode: "lexical", memoryAssistance: candidates.memoryAssistance };
+  }
+
+  const fused = fuseRankings(
+    [
+      { name: "lexical", ranked: candidates.lexicalRanked.slice(0, take) },
+      { name: "vector", ranked: vectorRanked }
+    ],
+    { limit: Math.max(1, safeLimit) }
+  );
+  const matches = fused.map((entry) => candidates.matchByPath.get(entry.id)).filter(Boolean);
+  return { matches, mode: "hybrid", memoryAssistance: candidates.memoryAssistance };
+}
+
+// Shared lexical machinery: scores every indexed file (so vector-only hits can be
+// rendered as evidence too) and returns the lexical ranking + a path→match map.
+function gatherCandidates(dbFile, query) {
+  const tokens = tokenize(query);
   const memoryBoosts = buildMemoryBoosts(findRelevantRunPatterns(dbFile, query, 3));
+  const memoryAssistance = {
+    matchedPatternCount: memoryBoosts.matchedPatternCount,
+    ignoredPatternCount: memoryBoosts.ignoredPatternCount,
+    ignoredOutcomes: memoryBoosts.ignoredOutcomes,
+    retrievalBoostApplied: memoryBoosts.files.size > 0,
+    boostedPaths: [...memoryBoosts.files.keys()]
+  };
+  if (tokens.length === 0) {
+    return { tokens, memoryAssistance, matchByPath: new Map(), lexicalRanked: [] };
+  }
 
   const rows = querySql(
     dbFile,
@@ -61,23 +127,17 @@ export function searchEvidence(dbFile, query, limit) {
   );
 
   const idf = computeIdf(rows, tokens);
-
-  const matches = rows
-    .map((row) => scoreRow(row, tokens, idf, memoryBoosts))
-    .filter((row) => row.score > 0)
+  const matchByPath = new Map();
+  for (const row of rows) {
+    const match = scoreRow(row, tokens, idf, memoryBoosts);
+    matchByPath.set(match.path, match);
+  }
+  const lexicalRanked = [...matchByPath.values()]
+    .filter((match) => match.score > 0)
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
-    .slice(0, Math.max(1, safeLimit));
+    .map((match) => match.path);
 
-  return {
-    matches,
-    memoryAssistance: {
-      matchedPatternCount: memoryBoosts.matchedPatternCount,
-      ignoredPatternCount: memoryBoosts.ignoredPatternCount,
-      ignoredOutcomes: memoryBoosts.ignoredOutcomes,
-      retrievalBoostApplied: memoryBoosts.files.size > 0,
-      boostedPaths: [...memoryBoosts.files.keys()]
-    }
-  };
+  return { tokens, memoryAssistance, matchByPath, lexicalRanked };
 }
 
 // Inverse document frequency for each query token over the indexed corpus.
