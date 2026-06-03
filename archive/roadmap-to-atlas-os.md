@@ -328,11 +328,14 @@ Sequencing: **#1 first** → **#2** (measures #1); **#3** supports #1 for non-JS
 
 - **Per-repo domain config / heuristic tables** — explicit **non-goal**. Relocating conventions into
   config contradicts the north star; do not build it.
-- **Semantic embeddings** — *evidence-gated*, not banned. Chosen strategy (Option A): build the
-  deterministic repo-derived backbone first; add embeddings only where roadmap #2's held-out eval shows
-  a genuine *concept gap* (query terms with no lexical/graph path to the code, e.g. "auth" ↔ "guard").
-  Given the north star they are *likely* justified eventually — but only with the eval's evidence and
-  per-miss attribution, never on reflex. Keeps the model quarantined behind the adapter seam.
+- **Semantic embeddings — BUILT (optional, off by default), on branch `feat/hybrid-vector-retrieval`.**
+  The deterministic repo-derived backbone shipped first; then hybrid lexical+vector retrieval was added
+  behind seams (embedding adapter / chunk-keyed store / `vectorSearch` / `fuseRankings`) with a small
+  **optional** local embedder (`@huggingface/transformers`, lazy + optionalDependency) and a deterministic
+  test stub. The discipline evolved from "eval-before-embeddings" to **"eval-gated embeddings"**: ships
+  off by default; `atlas eval retrieval --ab` measures lexical-vs-hybrid lift on a concept-gap semantic
+  spec; promote to on-by-default only on demonstrated lift. Design: `docs/superpowers/specs/2026-06-03-hybrid-vector-retrieval-design.md`.
+  Still deferred behind the same seams (eval-gated): per-symbol chunks, an ANN index, a hosted API embedder.
 - **Team / shared memory** — README defer; kernel is single-user/local.
 - **SQLite FTS5 retrieval scaling** (v2 P2.8) — only at large-repo scale.
 - **Memory recency/decay** (v2 P1.6) — only once #2 shows memory drift.

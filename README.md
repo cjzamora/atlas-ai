@@ -224,6 +224,19 @@ This reports:
 - per-query misses that can justify future semantic retrieval work
 - optional pass/fail thresholding for real-repo baselines
 
+Semantic A/B (lexical vs hybrid) — measures whether embeddings earn their keep before you turn
+them on by default. Requires embeddings enabled + a local model installed (see "Semantic
+retrieval" above); a concept-gap spec ships at `evals/retrieval/holdout-js-eventbus.semantic.spec.json`:
+
+```bash
+node src/cli.js eval retrieval \
+  --root playgrounds/holdout-js-eventbus \
+  --spec evals/retrieval/holdout-js-eventbus.semantic.spec.json \
+  --ab
+```
+
+The `--ab` block reports lexical vs hybrid evidence hit-rate and average rank, plus the lift.
+
 ## Scope of v0
 
 Implemented:
@@ -276,17 +289,28 @@ Execution adapter contract in v0:
 - provider-specific wire details stay inside the adapter implementation
 - JavaScript and TypeScript repository scanning now uses a real TypeScript AST-backed parser, with the older heuristic scanner retained as fallback behavior for other file families
 
+Semantic retrieval (optional, off by default):
+
+- Retrieval can run in **hybrid** mode — the domain-agnostic lexical engine fused (reciprocal
+  rank fusion) with semantic vector search — so queries match by meaning regardless of language,
+  structure, or naming. The embedder is a **pluggable adapter** with a local default model; it is
+  an **optional dependency**, so the default install stays dependency-light and offline, and
+  retrieval transparently degrades to lexical-only when no embedder is available.
+- Enable it per repo: `npm install @huggingface/transformers`, set
+  `"embeddings": { "enabled": true, "provider": "local" }` in `.atlas/config.json`, then re-run
+  `atlas index` to build the vector index. Measure whether it helps with the A/B below before
+  relying on it.
+
 Not implemented yet:
 
-- semantic embeddings
 - team/shared memory
+- per-symbol embeddings, an ANN index, and a hosted embedding API (all deferred behind the
+  embedding/seam abstractions, gated on eval evidence)
 
 These are intentionally deferred beyond v0:
 
 - `semantic or validation-aware retry loops`
   Atlas now retries only transient provider/runtime failures. Semantic retries for malformed output, validation failures, or re-planning remain deferred until stricter autonomy boundaries are defined.
-- `semantic embeddings`
-  Best added only if retrieval quality becomes a real bottleneck on larger repos.
 - `team/shared memory`
   Best added later in v1 or v2, once Atlas is ready to move beyond a local single-user workflow.
 
