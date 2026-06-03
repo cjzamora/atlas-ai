@@ -1,0 +1,30 @@
+{
+  "_comment": "Concept-gap spec for the embeddings A/B. Queries use vocabulary that does NOT appear in the code (broadcast vs publish, memoize/expire vs ttl/cache, rate-limit vs throttle). Run with: atlas eval retrieval --root playgrounds/holdout-js-eventbus --spec evals/retrieval/holdout-js-eventbus.semantic.spec.json --ab  (requires embeddings enabled + a local model installed). Lexical alone is expected to miss; hybrid should catch them — the reported lift is the gate for turning embeddings on by default.",
+  "limit": 5,
+  "cases": [
+    {
+      "id": "broadcast-to-listeners",
+      "query": "broadcast a notification to every listener",
+      "expectedEvidence": ["src/event-bus.js"],
+      "expectedTests": []
+    },
+    {
+      "id": "memoize-with-expiry",
+      "query": "memoize values that expire after a while",
+      "expectedEvidence": ["src/cache-store.js"],
+      "expectedTests": []
+    },
+    {
+      "id": "rate-limit-rapid-calls",
+      "query": "limit how often a rapidly repeated call runs",
+      "expectedEvidence": ["src/throttle.js"],
+      "expectedTests": []
+    },
+    {
+      "id": "register-and-cancel-handlers",
+      "query": "register a handler and later cancel it",
+      "expectedEvidence": ["src/subscription.js"],
+      "expectedTests": []
+    }
+  ]
+}

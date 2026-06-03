@@ -11,6 +11,7 @@ import { buildEmbeddingIndex } from "../src/core/embedding-index.js";
 import { stubEmbeddingAdapter } from "../src/adapters/embeddings/stub.js";
 import { indexCommand } from "../src/commands/index.js";
 import { querySql } from "../src/core/sqlite.js";
+import { evaluateEvidenceAB } from "../src/core/retrieval-eval.js";
 
 test("hybrid retrieval surfaces a concept-gap match that lexical alone misses", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-hybrid-"));
@@ -115,6 +116,48 @@ test("atlas index builds the embedding index when enabled with an available adap
 
     const rows = querySql(path.join(workingRoot, ".atlas", "atlas.sqlite"), "select count(*) as n from embeddings;");
     assert.ok(Number(rows[0].n) >= 1, "embeddings table should be populated");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("evidence A/B reports hybrid lift on a concept-gap query", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-ab-"));
+  try {
+    const workingRoot = path.join(tempRoot, "repo");
+    await fs.mkdir(path.join(workingRoot, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(workingRoot, "src", "access-control.js"),
+      [
+        "export function enforceSessionGuard(request) {",
+        "  const session = request.session;",
+        "  const guard = request.guard;",
+        "  return Boolean(session && guard);",
+        "}"
+      ].join("\n")
+    );
+    await fs.writeFile(
+      path.join(workingRoot, "src", "pricing-utils.js"),
+      "export function applyDiscount(total, rate) {\n  return total - total * rate;\n}"
+    );
+
+    const runtime = await ensureAtlasRuntime(workingRoot);
+    const scan = await scanRepository(workingRoot);
+    upsertFiles(runtime.paths.dbFile, scan.files);
+    await buildEmbeddingIndex({ dbFile: runtime.paths.dbFile, files: scan.files, adapter: stubEmbeddingAdapter });
+
+    const spec = {
+      limit: 5,
+      cases: [
+        { id: "auth-concept", query: "authentication", expectedEvidence: ["src/access-control.js"], expectedTests: [] }
+      ]
+    };
+    const ab = await evaluateEvidenceAB(runtime.paths.dbFile, spec, stubEmbeddingAdapter);
+
+    assert.equal(ab.embedderActive, true);
+    assert.equal(ab.lexical.evidenceHitRate, 0, "lexical should miss the concept-gap query");
+    assert.equal(ab.hybrid.evidenceHitRate, 1, "hybrid should catch it");
+    assert.ok(ab.lift.evidenceHitRate > 0, "A/B should report positive lift");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
