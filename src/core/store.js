@@ -50,6 +50,17 @@ export function initializeDatabase(dbFile) {
         confidence text not null,
         created_at text not null
       );
+
+      create table if not exists embeddings (
+        chunk_id text primary key,
+        path text not null,
+        kind text not null default 'file',
+        ref text,
+        model text not null,
+        dim integer not null,
+        vector text not null,
+        content_sha1 text not null
+      );
     `
   );
 

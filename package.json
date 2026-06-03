@@ -26,5 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "typescript": "^6.0.3"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.0.0"
   }
 }

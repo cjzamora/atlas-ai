@@ -1,6 +1,8 @@
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { createRunLogger } from "../core/run-log.js";
-import { checkRetrievalEvalReport, loadRetrievalEvalSpec, evaluateRetrievalSpec, writeRetrievalEvalReport } from "../core/retrieval-eval.js";
+import { checkRetrievalEvalReport, loadRetrievalEvalSpec, evaluateRetrievalSpec, evaluateEvidenceAB, writeRetrievalEvalReport } from "../core/retrieval-eval.js";
+import { resolveEmbeddingAdapter } from "../adapters/embeddings/index.js";
+import "../adapters/embeddings/local.js";
 
 const USAGE = 'Usage: atlas eval retrieval --spec <spec.json> [--report <report.json>] [--check-report] [--fail-under <0..1>] [--root <path>] [--json]';
 
@@ -59,6 +61,13 @@ export async function evalCommand({ args, flags }) {
       await writeRetrievalEvalReport(reportFile, output);
     }
     output.reportFile = reportFile;
+  }
+
+  // --ab: lexical-vs-hybrid evidence A/B. Computed after the report write/check so
+  // the committed drift-guard report is unaffected by this diagnostic.
+  if (flags.ab) {
+    const embedder = await resolveEmbeddingAdapter(runtime.config?.embeddings);
+    output.ab = await evaluateEvidenceAB(runtime.paths.dbFile, spec, embedder);
   }
 
   logger.finishRun(run.id, {

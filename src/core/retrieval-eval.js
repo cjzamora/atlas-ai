@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { searchEvidence } from "./retrieval.js";
+import { searchEvidence, hybridSearchEvidence } from "./retrieval.js";
 import { selectImpactedTests } from "../validation/test-selection.js";
 
 export async function loadRetrievalEvalSpec(specFile) {
@@ -52,6 +52,47 @@ export async function checkRetrievalEvalReport(reportFile, report) {
     passed,
     reportFile,
     reason: passed ? null : "stale_report"
+  };
+}
+
+// Evidence-only A/B: measures expected-evidence hit rate + average rank under
+// lexical retrieval vs hybrid (lexical+vector) retrieval, plus the lift. This is
+// the number that gates whether semantic embeddings earn their keep. Impacted-test
+// selection is unaffected by embeddings, so it is intentionally out of scope here.
+export async function evaluateEvidenceAB(dbFile, spec, adapter = null) {
+  const limit = Math.max(1, Number(spec.limit || 5));
+  const cases = [];
+  for (const entry of spec.cases) {
+    const expected = normalizePathList(entry.expectedEvidence);
+    const lexical = searchEvidence(dbFile, entry.query, limit);
+    const hybrid = await hybridSearchEvidence(dbFile, entry.query, limit, adapter);
+    const lexicalRank = findFirstRank(expected, normalizePathList(lexical.matches.map((match) => match.path)));
+    const hybridRank = findFirstRank(expected, normalizePathList(hybrid.matches.map((match) => match.path)));
+    cases.push({
+      id: entry.id,
+      query: entry.query,
+      lexical: { hit: lexicalRank !== null, rank: lexicalRank },
+      hybrid: { hit: hybridRank !== null, rank: hybridRank, mode: hybrid.mode }
+    });
+  }
+
+  const total = cases.length;
+  const lexicalHitRate = rate(cases.filter((entry) => entry.lexical.hit).length, total);
+  const hybridHitRate = rate(cases.filter((entry) => entry.hybrid.hit).length, total);
+
+  return {
+    caseCount: total,
+    embedderActive: cases.some((entry) => entry.hybrid.mode === "hybrid"),
+    lexical: {
+      evidenceHitRate: lexicalHitRate,
+      evidenceAverageRank: averageRank(cases.map((entry) => entry.lexical.rank))
+    },
+    hybrid: {
+      evidenceHitRate: hybridHitRate,
+      evidenceAverageRank: averageRank(cases.map((entry) => entry.hybrid.rank))
+    },
+    lift: { evidenceHitRate: hybridHitRate - lexicalHitRate },
+    cases
   };
 }
 
