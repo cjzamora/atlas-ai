@@ -1,6 +1,6 @@
 import { ensureAtlasRuntime } from "../core/runtime.js";
 import { createRunLogger } from "../core/run-log.js";
-import { searchEvidence } from "../core/retrieval.js";
+import { retrieveEvidence } from "../core/evidence.js";
 
 export async function askCommand({ args, flags }) {
   const query = args.join(" ").trim();
@@ -10,7 +10,7 @@ export async function askCommand({ args, flags }) {
 
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 5);
-  const evidence = searchEvidence(runtime.paths.dbFile, query, limit);
+  const evidence = await retrieveEvidence({ runtime, query, limit });
 
   const logger = createRunLogger(runtime.paths.dbFile);
   const run = logger.startRun({

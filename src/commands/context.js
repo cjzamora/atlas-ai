@@ -1,5 +1,5 @@
 import { ensureAtlasRuntime } from "../core/runtime.js";
-import { searchEvidence } from "../core/retrieval.js";
+import { retrieveEvidence } from "../core/evidence.js";
 import { classifyTask, buildPlanArtifact } from "../core/planner.js";
 import { selectImpactedTests } from "../validation/test-selection.js";
 import { buildContextBundle } from "../core/context-builder.js";
@@ -14,7 +14,7 @@ export async function contextCommand({ args, flags }) {
   const runtime = await ensureAtlasRuntime(flags.root);
   const limit = Number(flags.limit || 6);
   const classification = classifyTask(task);
-  const evidence = searchEvidence(runtime.paths.dbFile, task, limit);
+  const evidence = await retrieveEvidence({ runtime, query: task, limit });
   const impacted = classification.requiresTests
     ? selectImpactedTests(runtime.paths.dbFile, task, limit)
     : { impactedFiles: [], tests: [] };
